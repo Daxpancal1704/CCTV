@@ -25,4 +25,9 @@ path(
     views.video_feed_cam2,
     name='video_feed_cam2'
 ),
+path(
+    'occupancy/',
+    views.occupancy_api,
+    name='occupancy'
+),
 ]

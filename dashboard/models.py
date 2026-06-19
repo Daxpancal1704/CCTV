@@ -1,4 +1,5 @@
-from django.db import models
+import os
+from django.db import models  # type: ignore
 
 class CameraLog(models.Model):
 
@@ -19,27 +20,15 @@ class Snapshot(models.Model):
         upload_to='snapshots/'
     )
 
+    camera_name = models.CharField(
+        max_length=100,
+        default="Unknown Camera"
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True
     )
 
-
-# class Employee(models.Model):
-
-#     name=models.CharField(
-#         max_length=100
-#     )
-
-#     image=models.ImageField(
-#         upload_to='employees/'
-#     )
-#     def __str__(self):
-#         return self.name
-
-
-
-from django.db import models
-import os
 
 class Employee(models.Model):
 
@@ -80,9 +69,11 @@ class RecognitionLog(models.Model):
         max_length=20
     )
 
+    camera_name = models.CharField(
+        max_length=100,
+        default="Unknown Camera"
+    )
+
     detection_time = models.DateTimeField(
         auto_now_add=True
     )
-
-    def __str__(self):
-        return self.person_name

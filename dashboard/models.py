@@ -32,31 +32,12 @@ class Snapshot(models.Model):
 
 class Employee(models.Model):
 
-    name = models.CharField(
-        max_length=100,
-        blank=True
-    )
+    name = models.CharField(max_length=100)
 
     image = models.ImageField(
         upload_to='employees/'
     )
-
-    def save(self,*args,**kwargs):
-
-        if not self.name:
-
-            filename = os.path.basename(
-                self.image.name
-            )
-
-            self.name = os.path.splitext(
-                filename
-            )[0]
-
-        super().save(*args,**kwargs)
-
-    def __str__(self):
-        return self.name
+    
     
 
 class RecognitionLog(models.Model):
@@ -77,3 +58,39 @@ class RecognitionLog(models.Model):
     detection_time = models.DateTimeField(
         auto_now_add=True
     )
+
+
+class  Visitorlogo(models.Model):
+
+    visitor_name = models.CharField(
+        max_length=100,
+        default="Unknown Visitor"
+    )
+
+    Snapshot = models.ImageField(
+        upload_to='visitors/'
+    )
+
+    detection_time = models.DateTimeField(
+        auto_now_add=True
+    )
+
+
+    def __str__(self):
+        return self.visitor_name
+    
+
+class Alert(models.Model):
+
+    alert_type = models.CharField(
+        max_length=100,
+    )
+
+    message = models.TextField()
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):  
+        return  self.alert_type

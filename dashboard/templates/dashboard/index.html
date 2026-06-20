@@ -1,364 +1,462 @@
 {% load static %}
-<link rel="stylesheet"
-href="{% static 'css/style.css' %}">
-
-
-
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart CCTV Monitoring System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .stats-card {
+            border-left: 4px solid #007bff;
+            transition: transform 0.2s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .stats-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .live-feed {
+            background-color: #000;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .feed-title {
+            color: #666;
+            font-weight: 600;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        .snapshot-img {
+            height: 200px;
+            width: 100%;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        .table-responsive {
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .status-online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .camera-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .camera-status-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .camera-status-time {
+            display: block;
+            font-size: 0.75rem;
+            margin-top: 3px;
+        }
+    </style>
 </head>
 
 <body>
-
-<div class="container-fluid">
-
-    <div class="row bg-dark text-white p-3">
-
-        <div class="col-md-6">
-            <h2>Smart CCTV Monitoring System</h2>
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h2 class="mb-0">📹 Smart CCTV Monitoring System</h2>
+            </div>
+            <div class="col-md-6 text-end">
+                <h5 id="clock" class="mb-0">--:--:--</h5>
+            </div>
         </div>
-
-        <div class="col-md-6 text-end">
-            <h5 id="clock"></h5>
-        </div>
-
     </div>
 
-    <div class="row mt-4">
-
-        <div class="col-md-3">
-
-            <div class="card mb-3">
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
                 <div class="card-body">
-
-                    <h5>Total Cameras</h5>
-
-                    <h2>1</h2>
-
+                    <h6 class="text-muted">Total Cameras</h6>
+                    <div class="stats-value">2</div>
                 </div>
             </div>
-
-            <div class="card mb-3">
-                <div class="card-body">
-
-                    <h5>Status</h5>
-
-                    <h3 id="camera-status"
-                        class="text-success">
-                        Online
-                    </h3>
-
-                </div>
-            </div>
-
-            <div class="card mb-3">
-                <div class="card-body">
-
-                    <h5>Resolution</h5>
-
-                    <h4>{{ width }} x {{ height }}</h4>
-
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-
-                    <h5>FPS</h5>
-
-                    <h4>{{ fps }}</h4>
-
-                </div>
-            </div>
-            <div  class="card"><button
-id="snapshot-btn"
-class="btn btn-primary">
-
-Capture Snapshot
-
-</button></div>
-
         </div>
 
-        <div class="col-md-9">
-
-            <div class="card">
-
-                <div class="card-header">
-
-                    Live Camera Feed
-
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <h6 class="text-muted">Camera Status</h6>
+                    <div class="mt-2">
+                        <div class="camera-status-row">
+                            <span class="camera-status-name">Camera 1</span>
+                            <span id="camera1-status" class="status-badge status-offline">Checking...</span>
+                        </div>
+                        <small id="camera1-time" class="camera-status-time text-muted"></small>
+                        <div class="camera-status-row">
+                            <span class="camera-status-name">Camera 2</span>
+                            <span id="camera2-status" class="status-badge status-offline">Checking...</span>
+                        </div>
+                        <small id="camera2-time" class="camera-status-time text-muted"></small>
+                    </div>
                 </div>
+            </div>
+        </div>
 
-               <div class="card-body">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <h6 class="text-muted">Faces Detected</h6>
+                    <div class="stats-value" id="face-count">0</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body">
+                    <h6 class="text-muted">People Count</h6>
+                    <div class="stats-value" id="people-count">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Feed Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Live Camera Feeds</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="feed-title">🎥 Camera 1 (Laptop Camera)</p>
+                            <div class="live-feed">
+                                <img src="{% url 'video_feed_cam1' %}" class="img-fluid w-100" alt="Camera 1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="feed-title">🎥 Camera 2 (USB Camera)</p>
+                            <div class="live-feed">
+                                <img src="{% url 'video_feed_cam2' %}" class="img-fluid w-100" alt="Camera 2">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button id="snapshot-btn" class="btn btn-primary btn-lg">
+                            <i>📸</i> Capture Snapshot
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Resolution</h6>
+                    <p class="mb-0"><strong>{{ width }} x {{ height }}</strong></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">FPS</h6>
+                    <p class="mb-0"><strong>{{ fps }}</strong></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Visitors Today</h6>
+                    <p class="mb-0"><strong id="visitor-count">{{ visitor_count }}</strong></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Total Events</h6>
+                    <p class="mb-0"><strong id="event-count">0</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Snapshots -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Recent Snapshots</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="snapshots-container">
+                        {% for snap in snapshots %}
+                        <div class="col-md-3 mb-3">
+                            <img src="{{ snap.image.url }}" class="snapshot-img" alt="Snapshot">
+                            <small class="text-muted d-block mt-2">{{ snap.created_at }}</small>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <p class="text-danger text-center">No snapshots found</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visitor History -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Visitor History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Visitor Name</th>
+                                    <th>Snapshot</th>
+                                    <th>Detection Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for visitor in visitors %}
+                                <tr>
+                                    <td><strong>{{ visitor.visitor_name }}</strong></td>
+                                    <td>
+                                        <img src="{{ visitor.Snapshot.url }}" width="80" height="80" class="rounded" style="object-fit: cover;">
+                                    </td>
+                                    <td>{{ visitor.detection_time }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">No visitor history available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Logs -->
     <div class="row">
-
-        <div class="col-md-6">
-
-            <h5>Camera 1 (Laptop Camera)</h5>
-
-            <img
-                src="{% url 'video_feed_cam1' %}"
-                class="img-fluid border"
-                width="100%">
-
-        </div>
-
-        <div class="col-md-6">
-
-            <h5>Camera 2 (USB Camera)</h5>
-
-            <img
-                src="{% url 'video_feed_cam2' %}"
-                class="img-fluid border"
-                width="100%">
-
-        </div>
-
-    </div>
-
-</div>
-
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Camera Activity Logs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log.event }}</td>
+                                    <td>{{ log.created_at }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted py-4">No activity logs available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-
         </div>
-
     </div>
-<div class="card mt-4">
+    <div class="card mt-4">
 
-<div class="card mt-4">
+    <div class="card mt-4">
 
     <div class="card-header">
-        Recent Snapshots
-    </div>
-
-    <div class="card">
-    <div class="card-body">
-
-        <h5>Faces Detected</h5>
-
-        <h2 id="face-count">0</h2>
-
-    </div>
-    <div class="card">
-
-    <div class="card-body">
-
-        <h5>People Count</h5>
-
-        <h2 id="people-count">
-            0
-        </h2>
-
-    </div>
-
-</div>
-</div>
-
-    <div class="card-body">
-
-        <div class="row">
-
-            {% for snap in snapshots %}
-
-            <div class="col-md-3 mb-3">
-
-                <p>{{ snap.image }}</p>
-
-                <p>{{ snap.image.url }}</p>
-
-                <img
-                    src="{{ snap.image.url }}"
-                    class="img-fluid border"
-                    style="height:200px;width:100%;object-fit:cover;">
-
-            </div>
-
-            {% empty %}
-
-            <div class="col-12">
-                <h5 class="text-danger">
-                    No snapshots found
-                </h5>
-            </div>
-
-            {% endfor %}
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- <div class="card-body">
-
-<div class="row">
-
-{% for snap in snapshots %}
-
-<div class="col-md-3">
-
-<img
-src="{{ snap.image.url }}"
-class="img-fluid">
-
-</div>
-
-{% endfor %}
-
-</div>
-
-</div> -->
-
-</div>
-<div class="card mt-4">
-
-    <div class="card-header">
-        Camera Logs
+        Alert History
     </div>
 
     <div class="card-body">
 
         <table class="table">
-
-            <tr>
-                <th>Event</th>
-                <th>Time</th>
-            </tr>
-
-            {% for log in logs %}
-
-            <tr>
-                <td>{{ log.event }}</td>
-                <td>{{ log.created_at }}</td>
-            </tr>
-
-            {% endfor %}
-
-        </table>
-
-    </div>
+                    <thead>
+                        <tr>
+                            <th>Alert Type</th>
+                            <th>Message</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alert-history-body">
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>{{ alert.alert_type }}</td>
+                            <td>{{ alert.message }}</td>
+                            <td>{{ alert.created_at }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
 
 </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // Clock Update
+    function updateClock() {
+        const clockElement = document.getElementById('clock');
+        if (clockElement) {
+            clockElement.innerHTML = new Date().toLocaleString();
+        }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-setInterval(function(){
+    // Snapshot Button
+    const snapshotBtn = document.getElementById('snapshot-btn');
+    if (snapshotBtn) {
+        snapshotBtn.addEventListener('click', function() {
+            fetch('/snapshot/', {
+                method: 'GET'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Snapshot captured successfully!');
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
 
-document.getElementById("clock")
-.innerHTML =
-new Date().toLocaleString();
+    // Face Count Update
+    function updateFaceCount() {
+        fetch('/face_count/')
+            .then(response => response.json())
+            .then(data => {
+                const faceCountElement = document.getElementById('face-count');
+                if (faceCountElement) {
+                    faceCountElement.innerHTML = data.count || 0;
+                }
+            })
+            .catch(error => console.error('Error fetching face count:', error));
+    }
+    setInterval(updateFaceCount, 2000);
+    updateFaceCount();
 
-},1000);
+    // People Count Update
+    function updatePeopleCount() {
+        fetch('/people_count/')
+            .then(response => response.json())
+            .then(data => {
+                const peopleCountElement = document.getElementById('people-count');
+                if (peopleCountElement) {
+                    peopleCountElement.innerHTML = data.count || 0;
+                }
+            })
+            .catch(error => console.error('Error fetching people count:', error));
+    }
+    setInterval(updatePeopleCount, 2000);
+    updatePeopleCount();
 
+    // Alert History Refresh
+    function updateAlerts() {
+        fetch('/alerts/')
+            .then(response => response.json())
+            .then(data => {
+                const body = document.getElementById('alert-history-body');
+                if (!body) return;
+                body.innerHTML = '';
+                data.alerts.forEach(alert => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${alert.alert_type}</td>
+                        <td>${alert.message}</td>
+                        <td>${alert.created_at}</td>
+                    `;
+                    body.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error updating alerts:', error));
+    }
+    setInterval(updateAlerts, 5000);
+    updateAlerts();
+
+    // Camera Status Check
+    function updateCameraStatus() {
+        fetch('/camera_status/', { method: 'GET' })
+            .then(response => response.json())
+            .then(data => {
+                const camera1Status = document.getElementById('camera1-status');
+                const camera2Status = document.getElementById('camera2-status');
+
+                if (camera1Status) {
+                    const camera1State = data.camera1 === 'Online' ? 'Online' : 'Offline';
+                    camera1Status.textContent = camera1State;
+                    camera1Status.className = 'status-badge ' + (camera1State === 'Online' ? 'status-online' : 'status-offline');
+                }
+                if (camera2Status) {
+                    const camera2State = data.camera2 === 'Online' ? 'Online' : 'Offline';
+                    camera2Status.textContent = camera2State;
+                    camera2Status.className = 'status-badge ' + (camera2State === 'Online' ? 'status-online' : 'status-offline');
+                }
+                const camera1Time = document.getElementById('camera1-time');
+                const camera2Time = document.getElementById('camera2-time');
+                if (camera1Time) {
+                    camera1Time.textContent = data.camera1 === 'Offline' ? `Offline since ${data.camera1_time}` : '';
+                }
+                if (camera2Time) {
+                    camera2Time.textContent = data.camera2 === 'Offline' ? `Offline since ${data.camera2_time}` : '';
+                }
+            })
+            .catch(error => console.log('Camera status check - continuing...'));
+    }
+    setInterval(updateCameraStatus, 5000);
+    updateCameraStatus();
 </script>
 
 </body>
 </html>
-
-
-<script>
-
-document
-.getElementById(
-"snapshot-btn"
-)
-.addEventListener(
-"click",
-function(){
-
-fetch("/snapshot/")
-
-.then(response =>
-response.json())
-
-.then(data => {
-
-alert(
-data.message
-);
-
-});
-
-});
-</script>
-<script>setInterval(()=>{
-
-fetch('/face_count/')
-
-.then(res=>res.json())
-
-.then(data=>{
-
-document.getElementById(
-'face-count'
-).innerHTML=data.count;
-
-});
-
-},1000);</script>
-<script>
-
-setInterval(function(){
-
-fetch('/face_count/')
-
-.then(response => response.json())
-
-.then(data => {
-
-document.getElementById(
-'face-count'
-).innerHTML = data.count;
-
-});
-
-},1000);
-
-</script>
-<script>
-
-setInterval(function(){
-
-fetch('/people_count/')
-
-.then(response =>
-response.json())
-
-.then(data => {
-
-document.getElementById(
-'people-count'
-).innerHTML =
-data.count;
-
-});
-
-},1000);
-
-</script>
-<!-- <div class="card mb-3">
-    <div class="card-header">
-        Laptop Cameranvidia-smi
-    </div>
-
-    <div class="card-body">
-        <h5>People: {{ camera1_people }}</h5>
-        <h5>Faces: {{ camera1_faces }}</h5>
-        <h5>Name: {{ camera1_name }}</h5>
-    </div>
-</div>
-
-<div class="card mb-3">
-    <div class="card-header">
-        USB Camera
-    </div>
-
-    <div class="card-body">
-        <h5>People: {{ camera2_people }}</h5>
-        <h5>Faces: {{ camera2_faces }}</h5>
-        <h5>Name: {{ camera2_name }}</h5>
-    </div>
-</div> -->

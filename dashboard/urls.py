@@ -7,6 +7,7 @@ urlpatterns = [
     path('camera_status/', views.camera_status, name='camera_status'),
     path('snapshot/', views.capture_snapshot, name='snapshot'),
     path('face_count/', views.face_count_api, name='face_count'),
+    path('alerts/', views.alerts_api, name='alerts_api'),
     path('test_log/', views.test_log, name='test_log'),
     # path('people_count/', views.people_count, name='people_count'),
     path(

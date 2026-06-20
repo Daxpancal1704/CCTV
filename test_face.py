@@ -7,3 +7,6 @@ result = DeepFace.verify(
 )
 
 print(result)
+print("Verified :", result["verified"])
+print("Distance :", result["distance"])
+print("Threshold:", result["threshold"])

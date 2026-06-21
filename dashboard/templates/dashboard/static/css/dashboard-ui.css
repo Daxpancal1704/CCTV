@@ -1,0 +1,37 @@
+/* Dashboard UI enhancements */
+:root{
+    --accent:#2b8cff;
+    --muted:#6c757d;
+    --card-radius:12px;
+}
+
+/* Gentle card lift */
+.card-animate{transition:transform .24s ease,box-shadow .24s ease}
+.card-animate:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(15,23,42,0.12)}
+
+/* Floating action button */
+.fab{position:fixed;right:24px;bottom:24px;z-index:1100;border-radius:50%;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;box-shadow:0 8px 20px rgba(43,140,255,0.18);cursor:pointer}
+
+/* Small responsive tweaks */
+@media (max-width:767px){
+    .live-feed{min-height:160px}
+    .camera-feed{height:220px}
+}
+
+/* Animated counters */
+.counter{font-weight:800;color:var(--accent)}
+
+/* Collapsible section heading */
+.section-toggle{cursor:pointer}
+.section-toggle .chev{transition:transform .18s ease}
+.section-collapsed .chev{transform:rotate(-90deg)}
+
+/* Snapshot thumbnail hover */
+.snapshot-img{transition:transform .18s ease,box-shadow .18s ease}
+.snapshot-img:hover{transform:scale(1.02);box-shadow:0 8px 20px rgba(2,6,23,0.12)}
+
+/* Table compact */
+.table-compact td, .table-compact th{padding:.5rem .6rem}
+
+/* Page info small */
+.page-info-small{font-size:0.9rem;color:var(--muted)}

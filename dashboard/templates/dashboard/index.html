@@ -7,6 +7,8 @@
     <title>Smart CCTV Monitoring System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard-ui.css' %}">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-+bZQ5Q6m5Q5a0bZ1Yh2QzY4Gk2K7Q5Q5q5b5Q5Q5Q5Q=" crossorigin="anonymous"></script>
     <style>
         :root{
             --bg: #f8f9fa;
@@ -341,7 +343,7 @@
                             </thead>
                             <tbody>
                                 {% for visitor in visitors %}
-                                <tr>
+                                <tr class="visitor-row">
                                     <td><strong>{{ visitor.visitor_name }}</strong></td>
                                     <td>
                                         <img src="{{ visitor.Snapshot.url }}" width="80" height="80" class="rounded" style="object-fit: cover;">
@@ -349,12 +351,19 @@
                                     <td>{{ visitor.detection_time }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr>
+                                <tr class="visitor-row">
                                     <td colspan="3" class="text-center text-muted py-4">No visitor history available</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div>
+                            <button id="visitor-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
+                            <button id="visitor-next" class="btn btn-sm btn-outline-secondary">Next</button>
+                        </div>
+                        <small id="visitor-page-info" class="text-muted">&nbsp;</small>
                     </div>
                 </div>
             </div>
@@ -379,17 +388,24 @@
                             </thead>
                             <tbody>
                                 {% for log in logs %}
-                                <tr>
+                                <tr class="log-row">
                                     <td>{{ log.event }}</td>
                                     <td>{{ log.created_at }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr>
+                                <tr class="log-row">
                                     <td colspan="2" class="text-center text-muted py-4">No activity logs available</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div>
+                            <button id="logs-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
+                            <button id="logs-next" class="btn btn-sm btn-outline-secondary">Next</button>
+                        </div>
+                        <small id="logs-page-info" class="text-muted">&nbsp;</small>
                     </div>
                 </div>
             </div>
@@ -415,7 +431,7 @@
                     </thead>
                     <tbody id="alert-history-body">
                         {% for alert in alerts %}
-                        <tr>
+                        <tr class="alert-row">
                             <td>{{ alert.alert_type }}</td>
                             <td>{{ alert.message }}</td>
                             <td>{{ alert.created_at }}</td>
@@ -423,6 +439,14 @@
                         {% endfor %}
                     </tbody>
         </table>
+
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div>
+                        <button id="alerts-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
+                        <button id="alerts-next" class="btn btn-sm btn-outline-secondary">Next</button>
+                    </div>
+                    <small id="alerts-page-info" class="text-muted">&nbsp;</small>
+                </div>
 
 </div>
 
@@ -444,6 +468,8 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
+<script src="{% static 'js/dashboard-ui.js' %}"></script>
 <script>
     // Clock Update
     function updateClock() {
@@ -510,6 +536,7 @@
                 body.innerHTML = '';
                 data.alerts.forEach(alert => {
                     const row = document.createElement('tr');
+                    row.className = 'alert-row';
                     row.innerHTML = `
                         <td>${alert.alert_type}</td>
                         <td>${alert.message}</td>
@@ -517,6 +544,7 @@
                     `;
                     body.appendChild(row);
                 });
+                if (typeof alertsPagination !== 'undefined' && alertsPagination !== null) alertsPagination.render();
             })
             .catch(error => console.error('Error updating alerts:', error));
     }
@@ -556,6 +584,41 @@
     updateCameraStatus();
     
     
+</script>
+
+<script>
+var visitorsPagination = null;
+var logsPagination = null;
+var alertsPagination = null;
+document.addEventListener('DOMContentLoaded', function(){
+    function setupPagination(prefix, rowClass, pageSize){
+        pageSize = pageSize || 5;
+        const prevBtn = document.getElementById(prefix + '-prev');
+        const nextBtn = document.getElementById(prefix + '-next');
+        const pageInfo = document.getElementById(prefix + '-page-info');
+        let page = 0;
+        function render(){
+            const rows = Array.from(document.getElementsByClassName(rowClass));
+            const total = rows.length;
+            const pages = total === 0 ? 1 : Math.max(1, Math.ceil(total / pageSize));
+            if(page >= pages) page = pages - 1;
+            rows.forEach((r, i) => {
+                r.style.display = (i >= page * pageSize && i < (page + 1) * pageSize) ? '' : 'none';
+            });
+            if(pageInfo) pageInfo.textContent = total === 0 ? 'No records' : `Page ${page+1} of ${pages}`;
+            if(prevBtn) prevBtn.disabled = page === 0 || total === 0;
+            if(nextBtn) nextBtn.disabled = (page + 1) * pageSize >= total || total === 0;
+        }
+        if(prevBtn) prevBtn.addEventListener('click', function(){ if(page > 0){ page--; render(); }});
+        if(nextBtn) nextBtn.addEventListener('click', function(){ const rows = document.getElementsByClassName(rowClass); if((page+1)*pageSize < rows.length){ page++; render(); }});
+        render();
+        return { render };
+    }
+
+    visitorsPagination = setupPagination('visitor', 'visitor-row', 5);
+    logsPagination = setupPagination('logs', 'log-row', 5);
+    alertsPagination = setupPagination('alerts', 'alert-row', 5);
+});
 </script>
 
 </body>

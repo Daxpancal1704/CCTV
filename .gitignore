@@ -3,15 +3,13 @@ __pycache__/
 *.pyc
 db.sqlite3
 media/
+runs/
 .env
-.idea/
 .vscode/
-# Ignore large media/datasets
+.idea/
 *.mp4
 *.avi
 *.mkv
-datasets/
-# Ignore large AI model weights if they exceed 100MB
 *.weights
 *.h5
 *.pkl

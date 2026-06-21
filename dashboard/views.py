@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import StreamingHttpResponse, JsonResponse
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import cv2
 import torch
 from ultralytics import YOLO
@@ -9,6 +9,14 @@ from .face_utils import recognize_face
 from .models import Snapshot, CameraLog, RecognitionLog
 from .models import Visitorlogo
 from .models import Alert
+from .models import Attendance
+# from .models import AlertHistory
+from reportlab.pdfgen import canvas
+from django.http import HttpResponse
+from reportlab.lib.utils import ImageReader
+from django.core.mail import send_mail
+from django.conf import settings
+
 
 model = YOLO("yolov8n.pt")
 if torch.cuda.is_available():
@@ -35,7 +43,8 @@ camera2 = cv2.VideoCapture(
 camera1.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 camera2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-
+print("Camera1:", camera1.isOpened())
+print("Camera2:", camera2.isOpened())
 
 camera1.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 camera1.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -63,6 +72,7 @@ last_unknown_time = None
 last_recognized_time = None
 last_recognized_name = None
 last_occupancy_time = None
+# last_occupancy_alert = None
 last_camera_status = {
     "camera1": True,
     "camera2": True,
@@ -75,7 +85,9 @@ camera_last_seen = {
     "camera1": None,
     "camera2": None,
 }
+last_email_time = {}
 
+# MAX_PEOPLE = 5
 
 
 def home(request):
@@ -88,6 +100,9 @@ def home(request):
     visitor_count=Visitorlogo.objects.count()
     visitors = Visitorlogo.objects.order_by('-detection_time')[:10]
     alerts = Alert.objects.order_by('-created_at')[:10]
+    attendance = Attendance.objects.order_by(
+    '-entry_time'
+)[:10]
 
     context = {
         "width": width,
@@ -97,7 +112,8 @@ def home(request):
         "logs": logs,
         "visitor_count": visitor_count,
         "visitors": visitors,
-        "alerts": alerts
+        "alerts": alerts,
+        "attendance": attendance,
     }
 
     return render(request, "dashboard/index.html", context)
@@ -121,6 +137,13 @@ def generate_frames(camera, camera_name, camera_key):
     while True:
 
         success, frame = camera.read()
+
+        if camera_key == "camera2":
+            print(
+                "CAM2:",
+                success,
+                frame.shape if success else None
+            )
 
         if not success:
             break
@@ -153,6 +176,7 @@ def generate_frames(camera, camera_name, camera_key):
                 label = result.names[class_id]
                 if label.lower() == "person":
                     people_count += 1
+
                 object_labels.append(label)
 
                 cv2.rectangle(
@@ -177,6 +201,30 @@ def generate_frames(camera, camera_name, camera_key):
                     phone_count += 1
 
         phone_text = f"Phones: {phone_count}"
+
+
+
+        # global last_occupancy_alert
+
+        # if people_count > MAX_PEOPLE:
+
+        #     current_time = datetime.now()
+
+        #     if (
+        #         last_occupancy_alert is None
+        #         or
+        #         (current_time - last_occupancy_alert).seconds > 30
+        #     ):
+
+        #         Alert.objects.create(
+
+        #             alert_type="Occupancy Alert",
+
+        #             message=f"{people_count} people detected"
+
+        #         )
+
+        #         last_occupancy_alert = current_time
 
         # ==========================
         # FACE DETECTION
@@ -268,6 +316,29 @@ def generate_frames(camera, camera_name, camera_key):
                         "media/current_face.jpg"
                     )
 
+                    today = date.today()
+
+                    if recognized_name != "Unknown":
+
+                        send_alert_email(
+                        "Known Person Detected",
+                        f"{recognized_name} detected."
+                    )
+
+                        already_marked = Attendance.objects.filter(
+                            employee_name=recognized_name,
+                            date=today
+                        ).exists()
+
+                        if not already_marked:
+
+                            Attendance.objects.create(
+
+                                employee_name=recognized_name,
+
+                                status="Present"
+                            )
+
                     print("Recognized =", recognized_name)
 
                     now = datetime.now()
@@ -304,6 +375,11 @@ def generate_frames(camera, camera_name, camera_key):
                                 message=f"{recognized_name} detected"
                             )
                             print(f"Known Visitor Detected: {recognized_name}")
+
+                            send_alert_email(
+                                "Unknown Face Detected",
+                                "An unknown person was detected by Smart CCTV."
+                            )
 
                         filename = now.strftime(
                             "%Y%m%d_%H%M%S"
@@ -513,23 +589,40 @@ def camera_status(request):
         readable_name = "Camera 1" if camera_key == "camera1" else "Camera 2"
 
         if not is_open and last_camera_status.get(camera_key, True):
+
             Alert.objects.create(
                 alert_type="Camera Offline",
                 message=f"{readable_name} Offline"
             )
-            last_camera_status_time[camera_key] = now
+
+            if can_send_email(f"{camera_key}_offline"):
+
+                send_alert_email(
+                    "Camera Offline Alert",
+                    f"{readable_name} is Offline."
+                )
+                last_camera_status_time[camera_key] = now
+
         elif is_open and not last_camera_status.get(camera_key, True):
+
             Alert.objects.create(
                 alert_type="Camera Online",
                 message=f"{readable_name} Online"
             )
+
+            if can_send_email(f"{camera_key}_online"):
+
+                send_alert_email(
+                    "Camera Online Alert",
+                    f"{readable_name} is Online again."
+                )
+
             last_camera_status_time[camera_key] = None
-
-    for camera_key, is_open in camera_states.items():
-        if not is_open and last_camera_status_time[camera_key] is None:
-            last_camera_status_time[camera_key] = now
-
-    last_camera_status.update(camera_states)
+            last_camera_status = camera_states.copy()
+            
+    last_camera_status["camera1"] = camera_states["camera1"]
+    last_camera_status["camera2"] = camera_states["camera2"]
+       
 
     return JsonResponse({
         "camera1": "Online" if camera_states["camera1"] else "Offline",
@@ -619,4 +712,410 @@ def alerts_api(request):
     ]
     return JsonResponse({
         "alerts": alert_list
-    })        
+    })   
+     
+def download_report(request):
+
+    response = HttpResponse(
+        content_type='application/pdf'
+    )
+
+    response[
+        'Content-Disposition'
+    ] = 'attachment; filename="Smart_CCTV_Report.pdf"'
+
+    p = canvas.Canvas(response)
+
+    # =========================
+    # HEADER
+    # =========================
+
+    p.setFont(
+        "Helvetica-Bold",
+        20
+    )
+
+    p.drawString(
+        130,
+        800,
+        "SMART CCTV REPORT"
+    )
+
+    report_id = datetime.now().strftime(
+        "CCTV-%Y%m%d-%H%M"
+    )
+
+    p.setFont(
+        "Helvetica",
+        10
+    )
+
+    p.drawString(
+        50,
+        770,
+        f"Report ID : {report_id}"
+    )
+
+    p.drawString(
+        50,
+        750,
+        f"Generated : {datetime.now()}"
+    )
+
+    # =========================
+    # SUMMARY
+    # =========================
+
+    total_visitors = RecognitionLog.objects.count()
+
+    total_alerts = Alert.objects.count()
+
+    total_snapshots = Snapshot.objects.count()
+
+    known_faces = RecognitionLog.objects.filter(
+        status="Known"
+    ).count()
+
+    unknown_faces = RecognitionLog.objects.filter(
+        status="Unknown"
+    ).count()
+
+    p.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    p.drawString(
+        50,
+        710,
+        "System Statistics"
+    )
+
+    p.setFont(
+        "Helvetica",
+        10
+    )
+
+    p.drawString(
+        50,
+        690,
+        f"Total Visitors : {total_visitors}"
+    )
+
+    p.drawString(
+        50,
+        675,
+        f"Known Faces : {known_faces}"
+    )
+
+    p.drawString(
+        50,
+        660,
+        f"Unknown Faces : {unknown_faces}"
+    )
+
+    p.drawString(
+        50,
+        645,
+        f"Total Alerts : {total_alerts}"
+    )
+
+    p.drawString(
+        50,
+        630,
+        f"Total Snapshots : {total_snapshots}"
+    )
+
+    # =========================
+    # CAMERA STATUS
+    # =========================
+
+    p.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    p.drawString(
+        50,
+        600,
+        "Camera Status"
+    )
+
+    p.setFont(
+        "Helvetica",
+        10
+    )
+
+    p.drawString(
+        50,
+        580,
+        "Camera 1 : Online"
+    )
+
+    p.drawString(
+        50,
+        565,
+        "Camera 2 : Offline"
+    )
+
+    # =========================
+    # CAMERA LOGS
+    # =========================
+
+    y = 530
+
+    p.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    p.drawString(
+        50,
+        y,
+        "Camera Activity Logs"
+    )
+
+    y -= 20
+
+    logs = CameraLog.objects.order_by(
+        '-created_at'
+    )[:5]
+
+    p.setFont(
+        "Helvetica",
+        9
+    )
+
+    for log in logs:
+
+        p.drawString(
+            50,
+            y,
+            f"{log.event}"
+        )
+
+        y -= 15
+
+    # =========================
+    # VISITOR HISTORY
+    # =========================
+
+    y -= 20
+
+    p.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    p.drawString(
+        50,
+        y,
+        "Visitor History"
+    )
+
+    y -= 20
+
+    visitors = RecognitionLog.objects.order_by(
+        '-detection_time'
+    )[:5]
+
+    p.setFont(
+        "Helvetica",
+        9
+    )
+
+    for visitor in visitors:
+
+        p.drawString(
+            50,
+            y,
+            f"{visitor.person_name} | {visitor.status}"
+        )
+
+        y -= 15
+
+    # =========================
+    # ATTENDANCE
+    # =========================
+
+    y -= 20
+
+    p.setFont(
+        "Helvetica-Bold",
+        14
+    )
+
+    p.drawString(
+        50,
+        y,
+        "Attendance Report"
+    )
+
+    y -= 20
+
+    attendance = Attendance.objects.order_by(
+        '-entry_time'
+    )[:5]
+
+    p.setFont(
+        "Helvetica",
+        9
+    )
+
+    for row in attendance:
+
+        p.drawString(
+            50,
+            y,
+            f"{row.employee_name} | {row.status}"
+        )
+
+        y -= 15
+
+    # =========================
+    # NEW PAGE
+    # =========================
+
+    p.showPage()
+
+    p.setFont(
+        "Helvetica-Bold",
+        18
+    )
+
+    p.drawString(
+        180,
+        800,
+        "Alert History"
+    )
+
+    y = 760
+
+    alerts = Alert.objects.order_by(
+        '-created_at'
+    )[:15]
+
+    p.setFont(
+        "Helvetica",
+        10
+    )
+
+    for alert in alerts:
+
+        p.drawString(
+            50,
+            y,
+            f"{alert.alert_type} | {alert.message}"
+        )
+
+        y -= 20
+
+    # =========================
+    # SNAPSHOTS PAGE
+    # =========================
+
+    p.showPage()
+
+    p.setFont(
+        "Helvetica-Bold",
+        18
+    )
+
+    p.drawString(
+        180,
+        800,
+        "Recent Snapshots"
+    )
+
+    snapshots = Snapshot.objects.order_by(
+        '-created_at'
+    )[:4]
+
+    x = 50
+    y = 600
+
+    for snap in snapshots:
+
+        try:
+
+            p.drawImage(
+                ImageReader(
+                    snap.image.path
+                ),
+                x,
+                y,
+                width=200,
+                height=150
+            )
+
+            x += 250
+
+            if x > 300:
+
+                x = 50
+                y -= 200
+
+        except:
+            pass
+
+    # =========================
+    # FOOTER
+    # =========================
+
+    p.setFont(
+        "Helvetica",
+        8
+    )
+
+    p.drawString(
+        180,
+        20,
+        "Generated By Smart CCTV Monitoring System"
+    )
+
+    p.save()
+
+    return response
+
+
+
+
+def send_alert_email(subject, message):
+
+    send_mail(
+        subject,
+        message,
+        settings.EMAIL_HOST_USER,
+        ['daxp1704@gmail.com'],
+        fail_silently=False
+    )
+
+
+def can_send_email(alert_type):
+
+    now = datetime.now()
+
+    if alert_type not in last_email_time:
+        last_email_time[alert_type] = now
+        return True
+
+    diff = (now - last_email_time[alert_type]).seconds
+
+    if diff > 60:
+        last_email_time[alert_type] = now
+        return True
+
+    return False
+
+
+
+def test_email(request):
+
+    send_alert_email(
+        "Smart CCTV Test",
+        "Email system working successfully."
+    )
+
+    return JsonResponse({
+        "message": "Email Sent"
+    })

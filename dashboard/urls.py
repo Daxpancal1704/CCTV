@@ -31,4 +31,17 @@ path(
     views.occupancy_api,
     name='occupancy'
 ),
+path(
+    'download_report/',
+    views.download_report,
+    name='download_report'
+),
+
+path(
+    'test_email/',
+    views.test_email,
+    name='test_email'
+),
+
+
 ]

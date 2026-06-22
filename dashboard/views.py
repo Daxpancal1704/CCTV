@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from reportlab.lib.utils import ImageReader
 from django.core.mail import send_mail
 from django.conf import settings
+from .face_utils import detect_emotion
 
 
 model = YOLO("yolov8n.pt")
@@ -72,6 +73,7 @@ last_unknown_time = None
 last_recognized_time = None
 last_recognized_name = None
 last_occupancy_time = None
+emotion = "Unknown"
 # last_occupancy_alert = None
 last_camera_status = {
     "camera1": True,
@@ -86,6 +88,12 @@ camera_last_seen = {
     "camera2": None,
 }
 last_email_time = {}
+
+# Mapping for assigning simple numeric IDs to recognized names
+name_id_map = {}
+next_person_id = 1
+unknown_counter = 0
+current_person_id = None
 
 # MAX_PEOPLE = 5
 
@@ -130,9 +138,10 @@ def generate_frames(camera, camera_name, camera_key):
     global last_recognized_name
     global last_occupancy_time
     global camera_last_seen
-
+    global emotion
     frame_count = 0
     recognized_name = "Unknown"
+    global name_id_map, next_person_id, unknown_counter, current_person_id
 
     while True:
 
@@ -315,6 +324,22 @@ def generate_frames(camera, camera_name, camera_key):
                     recognized_name = recognize_face(
                         "media/current_face.jpg"
                     )
+                    emotion = detect_emotion(
+                        "media/current_face.jpg"
+                    )
+
+                    # assign or reuse a numeric id for the recognized person
+                    if recognized_name != "Unknown":
+                        if recognized_name not in name_id_map:
+                            name_id_map[recognized_name] = next_person_id
+                            next_person_id += 1
+                        current_person_id = name_id_map[recognized_name]
+                    else:
+                        # unknowns get a running U<number>
+                        unknown_counter += 1
+                        current_person_id = f"U{unknown_counter}"
+
+                    print("Emotion =", emotion)
 
                     today = date.today()
 
@@ -440,21 +465,42 @@ def generate_frames(camera, camera_name, camera_key):
                 recognized_name
             )
 
+            # choose colors: green for known, red for unknown
+            if recognized_name != "Unknown":
+                box_color = (0, 255, 0)  # green
+                text_color = (0, 255, 0)
+            else:
+                box_color = (0, 0, 255)  # red
+                text_color = (0, 255, 255)
+
             cv2.rectangle(
                 frame,
                 (x, y),
                 (x + w, y + h),
-                (255, 0, 0),
+                box_color,
                 2
             )
 
+            # Display name and assigned ID
+            id_text = f"ID: {current_person_id}" if current_person_id is not None else "ID: -"
             cv2.putText(
                 frame,
-                recognized_name,
-                (x, y - 10),
+                f"{recognized_name} | {id_text}",
+                (x, y - 20),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
-                (255, 0, 0),
+                text_color,
+                2
+            )
+
+            # Emotion
+            cv2.putText(
+                frame,
+                f"Emotion: {emotion}",
+                (x, y - 5),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 0),
                 2
             )
 
@@ -472,15 +518,25 @@ def generate_frames(camera, camera_name, camera_key):
             2
         )
 
-        cv2.putText(
-            frame,
-            f"Name: {recognized_name}",
-            (10, 70),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 0),
-            2
-        )
+        # cv2.putText(
+        #     frame,
+        #     f"Name: {recognized_name}",
+        #     (10, 70),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.8,
+        #     (0, 255, 0),
+        #     2
+        # )
+
+        # cv2.putText(
+        #     frame,
+        #     f"Emotion: {emotion}",
+        #     (10, 150),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.8,
+        #     (255, 0, 255),
+        #     2
+        # )
 
         cv2.putText(
             frame,

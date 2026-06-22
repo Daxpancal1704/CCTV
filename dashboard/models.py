@@ -29,7 +29,6 @@ class Snapshot(models.Model):
         auto_now_add=True
     )
 
-
 class Employee(models.Model):
 
     name = models.CharField(max_length=100)
@@ -38,8 +37,6 @@ class Employee(models.Model):
         upload_to='employees/'
     )
     
-    
-
 class RecognitionLog(models.Model):
 
     person_name = models.CharField(
@@ -58,7 +55,6 @@ class RecognitionLog(models.Model):
     detection_time = models.DateTimeField(
         auto_now_add=True
     )
-
 
 class  Visitorlogo(models.Model):
 
@@ -79,7 +75,6 @@ class  Visitorlogo(models.Model):
     def __str__(self):
         return self.visitor_name
     
-
 class Alert(models.Model):
 
     alert_type = models.CharField(
@@ -95,7 +90,6 @@ class Alert(models.Model):
     def __str__(self):  
         return  self.alert_type
     
-
 class Attendance(models.Model):
 
     employee_name = models.CharField(
@@ -120,8 +114,6 @@ class Attendance(models.Model):
     def __str__(self):
         return f"{self.employee_name} - {self.date}"
 
-
-
 class Report(models.Model):
 
     generated_at = models.DateTimeField(
@@ -134,3 +126,17 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Report {self.id}"
+    
+class VisitorAnalytics(models.Model):
+
+    date = models.DateField(auto_now_add=True)
+
+    entry_count = models.IntegerField(default=0)
+
+    exit_count = models.IntegerField(default=0)
+
+    occupancy = models.IntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        self.occupancy = self.entry_count - self.exit_count
+        super().save(*args, **kwargs)

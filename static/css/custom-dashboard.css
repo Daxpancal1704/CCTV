@@ -1,0 +1,37 @@
+/* Custom Dashboard Styles: improves spacing, cards, live feed, and controls */
+:root{
+  --accent: #4f46e5;
+  --accent-2: #06b6d4;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --success: #10b981;
+  --danger: #ef4444;
+}
+body{background:var(--bg);font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+.header{border-radius:10px;padding:20px;color:#fff;background:linear-gradient(90deg,var(--accent),#7c3aed);box-shadow:0 6px 18px rgba(15,23,42,0.08)}
+.stats-card{border-radius:10px;padding:16px}
+.live-feed{background:#000;border-radius:8px;min-height:190px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.live-feed img{height:100%;width:100%;object-fit:cover}
+.btn-primary{background:var(--accent);border-color:var(--accent);box-shadow:0 4px 12px rgba(79,70,229,0.12)}
+.card{border-radius:10px}
+.camera-status-row .status-badge{border-radius:999px;padding:6px 12px;font-weight:700}
+.status-online{background:#e6fffa;color:#065f46}
+.status-offline{background:#fff1f2;color:#7f1d1d}
+.feed-controls{display:flex;gap:8px;align-items:center;margin-top:12px}
+.small-muted{color:var(--muted);font-size:0.9rem}
+.snapshot-img{border-radius:8px}
+.toast{position:fixed;right:20px;bottom:20px;background:#111827;color:#fff;padding:12px 16px;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,0.2);z-index:2000}
+@media(max-width:768px){.stats-value{font-size:1.4rem}}
+
+/* Card hover subtle */
+.card:hover{transform:translateY(-4px);transition:all .18s ease}
+
+/* Camera placeholder */
+.camera-placeholder{display:flex;align-items:center;justify-content:center;color:#9ca3af;font-weight:600}
+
+/* Improved table styles */
+.table thead th{background:#f3f4f6}
+
+/* Camera index badge */
+.cam-index{font-size:0.75rem;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,0.06)}

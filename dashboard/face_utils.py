@@ -24,3 +24,18 @@ def recognize_face(frame_path):
 
         print("ERROR =", e)
         return "Unknown"
+    
+
+def detect_emotion(frame_path):
+    try:
+        result = DeepFace.analyze(
+            img_path=frame_path,
+            actions=['emotion'],
+            enforce_detection=False
+        )
+
+        return result[0]['dominant_emotion']
+
+    except Exception as e:
+        print("Emotion Error =", e)
+        return "Unknown"    

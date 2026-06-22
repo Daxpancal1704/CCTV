@@ -7,6 +7,7 @@ from .models import Visitorlogo
 from .models import Alert
 from .models import Attendance
 from .models import Report
+from.models import VisitorAnalytics
 
 admin.site.register(CameraLog)
 admin.site.register(Snapshot)
@@ -16,3 +17,4 @@ admin.site.register(Visitorlogo)
 admin.site.register(Alert)
 admin.site.register(Attendance)
 admin.site.register(Report)
+admin.site.register(VisitorAnalytics)

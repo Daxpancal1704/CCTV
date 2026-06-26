@@ -243,10 +243,80 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3">
-                        <button id="snapshot-btn" class="btn btn-primary btn-lg">
+                    <div class="mt-3 d-flex flex-wrap gap-2">
+                        <button id="snapshot-btn" class="btn btn-primary btn-lg" onclick="captureSnapshot()">
                             <i>📸</i> Capture Snapshot
                         </button>
+                        <button id="camera1-start-btn" class="btn btn-success btn-lg" onclick="controlCamera(1, 'start')">
+                            ▶ Start Camera 1
+                        </button>
+                        <button id="camera1-stop-btn" class="btn btn-danger btn-lg" onclick="controlCamera(1, 'stop')">
+                            ■ Stop Camera 1
+                        </button>
+                        <button id="camera2-start-btn" class="btn btn-success btn-lg" onclick="controlCamera(2, 'start')">
+                            ▶ Start Camera 2
+                        </button>
+                        <button id="camera2-stop-btn" class="btn btn-danger btn-lg" onclick="controlCamera(2, 'stop')">
+                            ■ Stop Camera 2
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Camera Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Add Camera</h5>
+                </div>
+                <div class="card-body">
+                    <form id="add-camera-form" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="new-camera-name" class="form-label">Camera Name</label>
+                            <input type="text" class="form-control" id="new-camera-name" placeholder="e.g. Parking Cam" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="new-camera-url" class="form-label">Camera RTSP / URL</label>
+                            <input type="text" class="form-control" id="new-camera-url" placeholder="rtsp://... or http://..." required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="new-camera-type" class="form-label">Type</label>
+                            <select id="new-camera-type" class="form-select">
+                                <option value="RTSP">RTSP</option>
+                                <option value="IP">IP</option>
+                                <option value="USB">USB</option>
+                                <option value="Webcam">Webcam</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">Add Camera</button>
+                        </div>
+                    </form>
+                    <div class="mt-4">
+                        <h6>Camera List</h6>
+                        <div id="camera-list" class="row gy-3">
+                            <div class="col-md-4">
+                                <div class="card border-secondary">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Camera 1</h6>
+                                        <p class="card-text mb-1">Type: Webcam</p>
+                                        <p class="card-text text-success mb-0">Status: Active</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-secondary">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Camera 2</h6>
+                                        <p class="card-text mb-1">Type: USB</p>
+                                        <p class="card-text text-success mb-0">Status: Active</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -341,6 +411,8 @@
                         <div class="col-md-3 mb-3">
                             <img src="{{ snap.image.url }}" class="snapshot-img" alt="Snapshot">
                             <small class="text-muted d-block mt-2">{{ snap.created_at }}</small>
+                            <small class="text-muted d-block mt-2">  📷 {{ snap.camera_name }}</small>
+
                         </div>
                         {% empty %}
                         <div class="col-12">
@@ -368,6 +440,7 @@
                                     <th>Visitor Name</th>
                                     <th>Snapshot</th>
                                     <th>Detection Time</th>
+                                    <th>Camera</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -378,6 +451,7 @@
                                         <img src="{{ visitor.Snapshot.url }}" width="80" height="80" class="rounded" style="object-fit: cover;">
                                     </td>
                                     <td>{{ visitor.detection_time }}</td>
+                                    <td>{{ visitor.camera_name }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr class="visitor-row">
@@ -512,19 +586,19 @@
     updateClock();
 
     // Snapshot Button
-    const snapshotBtn = document.getElementById('snapshot-btn');
-    if (snapshotBtn) {
-        snapshotBtn.addEventListener('click', function() {
-            fetch('/snapshot/', {
-                method: 'GET'
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message || 'Snapshot captured successfully!');
-            })
-            .catch(error => console.error('Error:', error));
-        });
-    }
+    // const snapshotBtn = document.getElementById('snapshot-btn');
+    // if (snapshotBtn) {
+    //     snapshotBtn.addEventListener('click', function() {
+    //         fetch('/snapshot/', {
+    //             method: 'GET'
+    //         })
+    //         .then(response => response.json())
+    //         .then(data => {
+    //             alert(data.message || 'Snapshot captured successfully!');
+    //         })
+    //         .catch(error => console.error('Error:', error));
+    //     });
+    // }
 
     // Face Count Update
     function updateFaceCount() {
@@ -649,6 +723,52 @@ document.addEventListener('DOMContentLoaded', function(){
     logsPagination = setupPagination('logs', 'log-row', 5);
     alertsPagination = setupPagination('alerts', 'alert-row', 5);
 });
+</script>
+<script>
+
+function captureSnapshot() {
+
+    let camera = prompt(
+        "Select Camera:\n\n1 = Laptop Camera\n2 = USB Camera"
+    );
+
+    if (
+        camera !== "1" &&
+        camera !== "2"
+    ) {
+
+        alert("Invalid Camera Selection");
+        return;
+    }
+
+    fetch(
+        `/snapshot/?camera=${camera}`
+    )
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        alert(data.message);
+
+        location.reload();
+
+    });
+
+}
+
+function controlCamera(camera, action) {
+    fetch(`/camera_control/?camera=${camera}&action=${action}`)
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message || 'Camera action complete');
+            window.location.reload();
+        })
+        .catch(() => {
+            alert('Unable to control camera at this time');
+        });
+}
+
 </script>
 
 </body>

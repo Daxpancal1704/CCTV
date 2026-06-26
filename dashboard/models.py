@@ -63,6 +63,11 @@ class  Visitorlogo(models.Model):
         default="Unknown Visitor"
     )
 
+    camera_name = models.CharField(
+        max_length=50,
+        default="Unknown"
+    )
+
     Snapshot = models.ImageField(
         upload_to='visitors/'
     )
@@ -140,3 +145,21 @@ class VisitorAnalytics(models.Model):
     def save(self, *args, **kwargs):
         self.occupancy = self.entry_count - self.exit_count
         super().save(*args, **kwargs)
+
+
+class BlacklistPerson(models.Model):
+
+    name = models.CharField(
+        max_length=100
+    )
+
+    image = models.ImageField(
+        upload_to="blacklist/"
+    )
+
+    added_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    def __str__(self):
+        return self.name        

@@ -8,6 +8,7 @@ from .models import Alert
 from .models import Attendance
 from .models import Report
 from.models import VisitorAnalytics
+from.models import BlacklistPerson
 
 admin.site.register(CameraLog)
 admin.site.register(Snapshot)
@@ -18,3 +19,4 @@ admin.site.register(Alert)
 admin.site.register(Attendance)
 admin.site.register(Report)
 admin.site.register(VisitorAnalytics)
+admin.site.register(BlacklistPerson)

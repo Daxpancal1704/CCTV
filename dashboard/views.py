@@ -1,7 +1,9 @@
 from django.shortcuts import render
 from django.http import StreamingHttpResponse, JsonResponse
 import os
-from datetime import date, datetime, timedelta, timezone
+import time
+import numpy as np
+from datetime import date, datetime, timedelta
 import cv2
 import torch
 from ultralytics import YOLO
@@ -10,14 +12,13 @@ from .models import Snapshot, CameraLog, RecognitionLog
 from .models import Visitorlogo
 from .models import Alert
 from .models import Attendance
-# from .models import AlertHistory
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 from reportlab.lib.utils import ImageReader
 from django.core.mail import send_mail
 from django.conf import settings
 from .face_utils import detect_emotion
-
+from .face_utils import check_blacklist
 
 model = YOLO("yolov8n.pt")
 if torch.cuda.is_available():
@@ -40,6 +41,11 @@ camera2 = cv2.VideoCapture(
     1,
     cv2.CAP_DSHOW
 )
+
+camera_indices = {
+    "camera1": 0,
+    "camera2": 1,
+}
 
 camera1.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 camera2.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -76,8 +82,8 @@ last_occupancy_time = None
 emotion = "Unknown"
 # last_occupancy_alert = None
 last_camera_status = {
-    "camera1": True,
-    "camera2": True,
+    "camera1": False,
+    "camera2": False,
 }
 last_camera_status_time = {
     "camera1": None,
@@ -86,6 +92,10 @@ last_camera_status_time = {
 camera_last_seen = {
     "camera1": None,
     "camera2": None,
+}
+camera_enabled = {
+    "camera1": True,
+    "camera2": True,
 }
 last_email_time = {}
 
@@ -96,6 +106,16 @@ unknown_counter = 0
 current_person_id = None
 
 # MAX_PEOPLE = 5
+
+
+def reopen_camera(camera, device_index):
+    try:
+        if not camera.isOpened():
+            camera.open(device_index, cv2.CAP_DSHOW)
+        return camera.isOpened()
+    except Exception as e:
+        print(f"Failed to reopen camera {device_index}: {e}")
+        return False
 
 
 def home(request):
@@ -132,18 +152,51 @@ def generate_frames(camera, camera_name, camera_key):
 
     global people_count
     global face_count
-    global recognized_name
+    # global recognized_name
     global last_unknown_time
     global last_recognized_time
     global last_recognized_name
     global last_occupancy_time
     global camera_last_seen
-    global emotion
+    # global emotion
+    global name_id_map, next_person_id, unknown_counter
+    
     frame_count = 0
-    recognized_name = "Unknown"
-    global name_id_map, next_person_id, unknown_counter, current_person_id
 
+    recognized_name = "Unknown"
+    emotion = "Unknown"
+    current_person_id = None
+    
     while True:
+        is_blacklisted = False
+
+        if not camera_enabled.get(camera_key, True):
+            if camera.isOpened():
+                camera.release()
+            blank = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(
+                blank,
+                "Camera Stopped",
+                (20, 260),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2
+            )
+            ret, buffer = cv2.imencode(
+                ".jpg",
+                blank,
+                [cv2.IMWRITE_JPEG_QUALITY, 40]
+            )
+            frame_bytes = buffer.tobytes()
+            yield (
+                b'--frame\r\n'
+                b'Content-Type: image/jpeg\r\n\r\n'
+                + frame_bytes +
+                b'\r\n'
+            )
+            time.sleep(0.2)
+            continue
 
         success, frame = camera.read()
 
@@ -154,7 +207,12 @@ def generate_frames(camera, camera_name, camera_key):
                 frame.shape if success else None
             )
 
-        if not success:
+        if not success or frame is None or (hasattr(frame, 'size') and frame.size == 0):
+            print(f"{camera_name} read failure: success={success}, frame={None if frame is None else getattr(frame, 'shape', 'unknown')}")
+            device_index = camera_indices.get(camera_key, 0)
+            if reopen_camera(camera, device_index):
+                print(f"Reopened {camera_name} on index {device_index}")
+                continue
             break
 
         camera_last_seen[camera_key] = datetime.now()
@@ -213,27 +271,7 @@ def generate_frames(camera, camera_name, camera_key):
 
 
 
-        # global last_occupancy_alert
-
-        # if people_count > MAX_PEOPLE:
-
-        #     current_time = datetime.now()
-
-        #     if (
-        #         last_occupancy_alert is None
-        #         or
-        #         (current_time - last_occupancy_alert).seconds > 30
-        #     ):
-
-        #         Alert.objects.create(
-
-        #             alert_type="Occupancy Alert",
-
-        #             message=f"{people_count} people detected"
-
-        #         )
-
-        #         last_occupancy_alert = current_time
+       
 
         # ==========================
         # FACE DETECTION
@@ -328,6 +366,52 @@ def generate_frames(camera, camera_name, camera_key):
                         "media/current_face.jpg"
                     )
 
+                    blacklisted_person = check_blacklist(
+                        "media/current_face.jpg"
+                    )
+                    
+                    print("BLACKLIST RESULT =", blacklisted_person)
+
+                    if blacklisted_person:
+
+                        is_blacklisted = True
+
+                        alert = Alert.objects.create(
+                            alert_type="Blacklisted Person",
+                            message=f"{blacklisted_person} detected in {camera_name}"
+                        )
+
+                        print("ALERT ID =", alert.id)
+
+                        print(f"BLACKLIST DETECTED: {blacklisted_person}")
+
+                        if can_send_email(
+                            f"blacklist_{blacklisted_person}"
+                        ):
+
+                            send_alert_email(
+                                "🚨 BLACKLISTED PERSON DETECTED",
+                                f"{blacklisted_person} detected in {camera_name}"
+                            )
+                        filename = datetime.now().strftime(
+                            "blacklist_%Y%m%d_%H%M%S.jpg"
+                        )
+
+                        path = os.path.join(
+                            "media",
+                            "blacklist_events",
+                            filename
+                        )
+
+                        os.makedirs(
+                            "media/blacklist_events",
+                            exist_ok=True
+                        )
+
+                        cv2.imwrite(
+                            path,
+                            frame
+                        )
                     # assign or reuse a numeric id for the recognized person
                     if recognized_name != "Unknown":
                         if recognized_name not in name_id_map:
@@ -343,19 +427,26 @@ def generate_frames(camera, camera_name, camera_key):
 
                     today = date.today()
 
-                    if recognized_name != "Unknown":
+                    # if recognized_name != "Unknown":
 
-                        send_alert_email(
-                        "Known Person Detected",
-                        f"{recognized_name} detected."
-                    )
+                    #     Alert.objects.create(
+                    #         alert_type="Known Face",
+                    #         message=f"{recognized_name} detected in {camera_name}"
+                    #     )
 
-                        already_marked = Attendance.objects.filter(
+                    #     if can_send_email(f"known_{recognized_name}"):
+
+                    #         send_alert_email(
+                    #             "Known Person Detected",
+                    #             f"{recognized_name} detected in {camera_name}"
+                    #         )
+
+                    already_marked = Attendance.objects.filter(
                             employee_name=recognized_name,
                             date=today
                         ).exists()
 
-                        if not already_marked:
+                    if not already_marked:
 
                             Attendance.objects.create(
 
@@ -388,23 +479,38 @@ def generate_frames(camera, camera_name, camera_key):
                             should_save_visitor = True
 
                     if should_save_visitor:
+
                         if alert_type is not None:
+
                             Alert.objects.create(
-                                alert_type=alert_type,
-                                message=alert_message
+                                alert_type="Unknown Face",
+                                message=f"Unknown person detected in {camera_name}"
                             )
+
                             print("Unknown Visitor Detected")
+
+                            if can_send_email("unknown_face"):
+
+                                send_alert_email(
+                                    "Unknown Face Detected",
+                                    f"Unknown person detected in {camera_name}"
+                                )
+
                         else:
+
                             Alert.objects.create(
                                 alert_type="Known Face",
-                                message=f"{recognized_name} detected"
+                                message=f"{recognized_name} detected in {camera_name}"
                             )
+
                             print(f"Known Visitor Detected: {recognized_name}")
 
-                            send_alert_email(
-                                "Unknown Face Detected",
-                                "An unknown person was detected by Smart CCTV."
-                            )
+                            if can_send_email(f"known_{recognized_name}"):
+
+                                send_alert_email(
+                                    "Known Person Detected",
+                                    f"{recognized_name} detected in {camera_name}"
+                                )
 
                         filename = now.strftime(
                             "%Y%m%d_%H%M%S"
@@ -431,9 +537,10 @@ def generate_frames(camera, camera_name, camera_key):
                         )
 
                         visitor = Visitorlogo.objects.create(
-                            visitor_name=visitor_name,
-                            Snapshot=f"visitors/{filename}"
-                        )
+                        visitor_name=visitor_name,
+                        Snapshot=f"visitors/{filename}",
+                        camera_name=camera_name
+                    )
 
                         print(
                             "Visitor Saved:",
@@ -456,22 +563,34 @@ def generate_frames(camera, camera_name, camera_key):
         # ==========================
         # DRAW FACE BOX
         # ==========================
+        if is_blacklisted:
 
+            cv2.putText(
+                frame,
+                "BLACKLISTED PERSON",
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                3
+            )
         for (x, y, w, h) in faces:
 
+            if is_blacklisted:
 
-            print(
-                "Current Name =",
-                recognized_name
-            )
+                box_color = (0, 0, 255)
+                text_color = (0, 0, 255)
 
-            # choose colors: green for known, red for unknown
-            if recognized_name != "Unknown":
-                box_color = (0, 255, 0)  # green
+            elif recognized_name != "Unknown":
+
+                box_color = (0, 255, 0)
                 text_color = (0, 255, 0)
+
             else:
-                box_color = (0, 0, 255)  # red
-                text_color = (0, 255, 255)
+
+                box_color = (0, 165, 255)
+                text_color = (0, 165, 255)
+
 
             cv2.rectangle(
                 frame,
@@ -566,6 +685,7 @@ def generate_frames(camera, camera_name, camera_key):
             + frame_bytes +
             b'\r\n'
         )
+      
 
 def video_feed_cam1(request):
 
@@ -599,6 +719,8 @@ def people_count_api(request):
 
 def camera_is_active(camera, camera_key):
     try:
+        if not camera_enabled.get(camera_key, True):
+            return False
         if not camera.isOpened():
             return False
 
@@ -606,25 +728,9 @@ def camera_is_active(camera, camera_key):
         if last_seen and datetime.now() - last_seen <= timedelta(seconds=10):
             return True
 
-        success, frame = camera.read()
-        if not success or frame is None:
-            return False
-
-        if hasattr(frame, 'size') and frame.size == 0:
-            return False
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        mean_val = gray.mean()
-        std_val = gray.std()
-
-        if mean_val < 15 and std_val < 10:
-            return False
-
-        sobel = cv2.Sobel(gray, cv2.CV_64F, 1, 1, ksize=3)
-        if abs(sobel).mean() < 5:
-            return False
-
-        return True
+        # Avoid additional reads from an already-streaming capture device.
+        # Use the most recent frame timestamp from the generator to determine activity.
+        return False
     except Exception:
         return False
 
@@ -642,31 +748,62 @@ def camera_status(request):
     now = datetime.now().strftime("%I:%M %p")
 
     for camera_key, is_open in camera_states.items():
-        readable_name = "Camera 1" if camera_key == "camera1" else "Camera 2"
 
-        if not is_open and last_camera_status.get(camera_key, True):
+        readable_name = (
+            "Camera 1"
+            if camera_key == "camera1"
+            else "Camera 2"
+        )
+
+        previous_status = last_camera_status.get(
+            camera_key,
+            False
+        )
+
+        print(
+            f"{camera_key} | Previous={previous_status} | Current={is_open}"
+        )
+
+        # ==========================
+        # OFFLINE ALERT
+        # ==========================
+
+        if previous_status and not is_open:
+
+            print(f"{readable_name} OFFLINE")
 
             Alert.objects.create(
                 alert_type="Camera Offline",
                 message=f"{readable_name} Offline"
             )
 
-            if can_send_email(f"{camera_key}_offline"):
+            if can_send_email(
+                f"{camera_key}_offline"
+            ):
 
                 send_alert_email(
                     "Camera Offline Alert",
                     f"{readable_name} is Offline."
                 )
-                last_camera_status_time[camera_key] = now
 
-        elif is_open and not last_camera_status.get(camera_key, True):
+            last_camera_status_time[camera_key] = now
+
+        # ==========================
+        # ONLINE ALERT
+        # ==========================
+
+        elif not previous_status and is_open:
+
+            print(f"{readable_name} ONLINE")
 
             Alert.objects.create(
                 alert_type="Camera Online",
                 message=f"{readable_name} Online"
             )
 
-            if can_send_email(f"{camera_key}_online"):
+            if can_send_email(
+                f"{camera_key}_online"
+            ):
 
                 send_alert_email(
                     "Camera Online Alert",
@@ -674,23 +811,85 @@ def camera_status(request):
                 )
 
             last_camera_status_time[camera_key] = None
-            last_camera_status = camera_states.copy()
-            
-    last_camera_status["camera1"] = camera_states["camera1"]
-    last_camera_status["camera2"] = camera_states["camera2"]
-       
+
+        # Save latest state
+        last_camera_status[camera_key] = is_open
 
     return JsonResponse({
-        "camera1": "Online" if camera_states["camera1"] else "Offline",
-        "camera2": "Online" if camera_states["camera2"] else "Offline",
-        "camera1_time": last_camera_status_time["camera1"],
-        "camera2_time": last_camera_status_time["camera2"],
+
+        "camera1":
+        "Online"
+        if camera_states["camera1"]
+        else "Offline",
+
+        "camera2":
+        "Online"
+        if camera_states["camera2"]
+        else "Offline",
+
+        "camera1_time":
+        last_camera_status_time["camera1"],
+
+        "camera2_time":
+        last_camera_status_time["camera2"]
+
     })
     
+    
+def control_camera(request):
+    camera_id = request.GET.get("camera", "1")
+    action = request.GET.get("action", "").lower()
+
+    if camera_id == "1":
+        camera = camera1
+        camera_name = "Laptop Camera"
+        camera_key = "camera1"
+        device_index = camera_indices["camera1"]
+    else:
+        camera = camera2
+        camera_name = "USB Camera"
+        camera_key = "camera2"
+        device_index = camera_indices["camera2"]
+
+    if action == "start":
+        camera_enabled[camera_key] = True
+        if not camera.isOpened():
+            success = camera.open(device_index, cv2.CAP_DSHOW)
+        else:
+            success = True
+        if success:
+            CameraLog.objects.create(event=f"{camera_name} Started")
+            return JsonResponse({"message": f"{camera_name} started", "status": "started"})
+        return JsonResponse({"message": f"Failed to start {camera_name}", "status": "error"}, status=500)
+
+    if action == "stop":
+        camera_enabled[camera_key] = False
+        if camera.isOpened():
+            camera.release()
+        CameraLog.objects.create(event=f"{camera_name} Stopped")
+        return JsonResponse({"message": f"{camera_name} stopped", "status": "stopped"})
+
+    return JsonResponse({"message": "Invalid camera action", "status": "error"}, status=400)
+
 
 def capture_snapshot(request):
 
-    success, frame = camera1.read()
+    camera_id = request.GET.get(
+        "camera",
+        "1"
+    )
+
+    if camera_id == "1":
+
+        camera = camera1
+        camera_name = "Laptop Camera"
+
+    else:
+
+        camera = camera2
+        camera_name = "USB Camera"
+
+    success, frame = camera.read()
 
     if success:
 
@@ -704,29 +903,28 @@ def capture_snapshot(request):
             filename
         )
 
-        cv2.imwrite(path, frame)
+        cv2.imwrite(
+            path,
+            frame
+        )
 
         Snapshot.objects.create(
             image=f"snapshots/{filename}",
-            camera_name="Laptop Camera"
+            camera_name=camera_name
         )
 
         CameraLog.objects.create(
-            event="Snapshot Captured"
+            event=f"{camera_name} Snapshot Captured"
         )
 
         return JsonResponse({
-
             "message":
-            "Snapshot Saved"
-
+            f"{camera_name} Snapshot Saved"
         })
 
     return JsonResponse({
-
         "message":
         "Camera Error"
-
     })
 
 def test_log(request):
@@ -1175,3 +1373,6 @@ def test_email(request):
     return JsonResponse({
         "message": "Email Sent"
     })
+
+
+

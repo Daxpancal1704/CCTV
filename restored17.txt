@@ -1,0 +1,136 @@
+1127: def video_feed(request, camera_id):
+1140: def occupancy_api(request):
+1152: def people_count_api(request):
+1158: def camera_is_active(camera, camera_key):
+1176: def camera_status(request):
+1232: def control_camera(request):
+1264: def capture_snapshot(request):
+1297: def test_log(request):
+1317: def face_count_api(request):
+1324: def alerts_api(request):
+1347: def people_count_api(request):
+1353: def camera_is_active(camera, camera_key):
+1371: def camera_status(request):
+1427: def control_camera(request):
+1459: def capture_snapshot(request):
+1492: def test_log(request):
+1512: def face_count_api(request):
+1519: def alerts_api(request):
+1539: def mark_alerts_read(request):
+1548: def delete_alerts(request):
+1565: def delete_logs(request):
+1580: def download_report(request):
+1379: def people_count_api(request):
+1385: def camera_is_active(camera, camera_key):
+1403: def camera_status(request):
+1459: def control_camera(request):
+1491: def capture_snapshot(request):
+1524: def test_log(request):
+1544: def face_count_api(request):
+1551: def alerts_api(request):
+1571: def mark_alerts_read(request):
+1580: def delete_alerts(request):
+1354: def video_feed(request, camera_id):
+1367: def occupancy_api(request):
+1379: def people_count_api(request):
+1385: def camera_is_active(camera, camera_key):
+1403: def camera_status(request):
+1459: def control_camera(request):
+1491: def capture_snapshot(request):
+1524: def test_log(request):
+1544: def face_count_api(request):
+1551: def alerts_api(request):
+1572: def mark_alerts_read(request):
+1581: def delete_alerts(request):
+1598: def delete_logs(request):
+-def video_feed(request, camera_id):
+-def occupancy_api(request):
+-def people_count_api(request):
+-def camera_is_active(camera, camera_key):
+-def camera_status(request):
+-def control_camera(request):
+-def capture_snapshot(request):
+-def test_log(request):
+-def face_count_api(request):
+-def alerts_api(request):
+-def mark_alerts_read(request):
+1159: def video_feed(request, camera_id):
+1172: def occupancy_api(request):
+1184: def people_count_api(request):
+1190: def camera_is_active(camera, camera_key):
+1208: def camera_status(request):
+1264: def control_camera(request):
+1296: def capture_snapshot(request):
+1329: def test_log(request):
+1347: def mark_alerts_read(request):
++def video_feed(request, camera_id):
++def occupancy_api(request):
++def people_count_api(request):
++def camera_is_active(camera, camera_key):
++def camera_status(request):
++def control_camera(request):
++def capture_snapshot(request):
++def test_log(request):
++def face_count_api(request):
++def alerts_api(request):
+def mark_alerts_read(request):
+1329: def test_log(request):
+1354: def video_feed(request, camera_id):
+1367: def occupancy_api(request):
+1379: def people_count_api(request):
+1385: def camera_is_active(camera, camera_key):
+1403: def camera_status(request):
+1459: def control_camera(request):
+1491: def capture_snapshot(request):
+1524: def test_log(request):
+1542: def face_count_api(request):
+1547: def alerts_api(request):
+1567: def mark_alerts_read(request):
+1576: def delete_alerts(request):
+-def test_log(request):
+-def video_feed(request, camera_id):
+-def occupancy_api(request):
+-def people_count_api(request):
+-def camera_is_active(camera, camera_key):
+-def camera_status(request):
+-def control_camera(request):
+-def capture_snapshot(request):
++def test_log(request)    camera_name = (
+def test_log(request):
+-def live_monitoring(request):
+-def cameras(request):
+-def delete_camera(request, camera_id):
+-def add_camera(request):
+-def ai_events(request):
+-def attendance_view(request):
+-def export_attendance_csv(request):
+-def visitors_view(request):
+-def snapshots_view(request):
+-def logs_view(request):
+-def settings_view(request):
+-def profile_view(request):
+-def alerts_page(request):
+-def export_alerts_csv(request):
+-def export_visitors_csv(request):
+-def reports_view(request):
+-def face_register(request):
+-        def process_image(angle):
+-def delete_face(request, pk):
+-def wanted_persons(request):
+-def delete_wanted(request, pk):
+-def capture_snapshot(request):
+-def download_snapshot(request, pk):
+-def delete_snapshot(request, pk):
+-def generate_frames(camera_id, camera_name, camera_key):
+-def video_feed(request, camera_id):
+-def occupancy_api(request):
+-def people_count_api(request):
+-def camera_is_active(camera, camera_key):
+-def camera_status(request):
+-def control_camera(request):
+-def capture_snapshot(request):
+def ready(self):
++                            if '@@ -163,1137 +163,6 @@' in content or '-def control_camera' in content or '1137' in content:
+def ready(self):
+-                            if '@@ -163,1137 +163,6 @@' in content or '-def control_camera' in content or '1137' in content:
++                            if content and 'def control_camera' in content:

@@ -60,7 +60,7 @@
                 document.body.appendChild(el);
                 setTimeout(()=>el.remove(),2000);
             }).catch(()=>{
-                alert('Snapshot failed');
+                showToast('Snapshot failed');
             });
         });
     }

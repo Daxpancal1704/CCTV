@@ -1,0 +1,59 @@
+Created At: 2026-06-29T10:28:27Z
+Completed At: 2026-06-29T10:28:40Z
+The following changes were made by the multi_replace_file_content tool to: c:\private\Project\SmartCCTV\dashboard\views.py. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -22,7 +22,7 @@
+ from django.conf import settings
+ from .face_utils import detect_emotion
+ from .face_utils import check_blacklist
+-from .models import Camera, Employee
++from .models import Camera, Employee, BlacklistPerson
+ 
+ model = YOLO("yolov8n.pt")
+ if torch.cuda.is_available():
+@@ -443,6 +443,38 @@
+         messages.error(request, "Employee not found.")
+     return redirect("face_register")
+ 
++@login_required
++def wanted_persons(request):
++    if request.method == "POST":
++        name = request.POST.get("wanted_name")
++        image = request.FILES.get("wanted_image")
++        reason = request.POST.get("wanted_reason", "")
++
++        if name and image:
++            BlacklistPerson.objects.create(name=name, image=image)
++            messages.success(request, f"'{name}' has been added to the watchlist. You will be alerted when detected on any CCTV.")
++        else:
++            messages.error(request, "Please provide both a name and an image.")
++
++        return redirect("wanted_persons")
++
++    persons = BlacklistPerson.objects.all().order_by('-added_at')
++    return render(request, "dashboard/wanted_persons.html", {"wanted_persons": persons})
++
++@login_required
++@require_http_methods(["POST"])
++def delete_wanted(request, pk):
++    try:
++        person = BlacklistPerson.objects.get(id=pk)
++        name = person.name
++        if person.image:
++            person.image.delete(save=False)
++        person.delete()
++        messages.success(request, f"'{name}' has been removed from the watchlist.")
++    except BlacklistPerson.DoesNotExist:
++        messages.error(request, "Person not found.")
++    return redirect("wanted_persons")
++
+ snapshot_requests = {
+     "camera1": False,
+     "camera2": False,
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown.
+
+You had inaccuracies in your replacement chunks, so you should review the file contents before making further edits. It is important that you get the target content EXACTLY right, otherwise you will make more mistakes.
+
+We did our best to apply changes despite some inaccuracies. Double check if the edit applied is what you intended.

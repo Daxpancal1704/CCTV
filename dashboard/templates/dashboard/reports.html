@@ -1,0 +1,65 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Reports - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bar-chart-line-fill me-2 text-primary"></i>System Reports</h2>
+    <div class="clock-box" id="clock" style="display: none;">--:--:--</div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-file-earmark-pdf-fill me-2" style="color:var(--accent-red)"></i>
+                Generate PDF Report
+            </div>
+            <div class="card-body-custom">
+                <p class="text-muted" style="font-size:.9rem">Generate a comprehensive PDF report of all system activities, attendance, and alerts for a specific time range.</p>
+                <form action="{% url 'download_report' %}" method="get" class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:.8rem">Start Date</label>
+                        <input type="date" class="form-control" name="start_date" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:.8rem">End Date</label>
+                        <input type="date" class="form-control" name="end_date" required>
+                    </div>
+                    <div class="col-12 mt-4">
+                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-download me-2"></i>Download PDF Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-file-earmark-spreadsheet-fill me-2" style="color:var(--accent-green)"></i>
+                Export CSV Data
+            </div>
+            <div class="card-body-custom">
+                <p class="text-muted" style="font-size:.9rem">Export specific datasets in CSV format for further analysis in Excel or other tools.</p>
+                
+                <div class="d-flex flex-column gap-3 mt-4">
+                    <a href="{% url 'export_attendance_csv' %}" class="btn btn-outline-secondary d-flex justify-content-between align-items-center text-decoration-none">
+                        <span><i class="bi bi-person-check me-2"></i> Attendance Records</span>
+                        <i class="bi bi-download"></i>
+                    </a>
+                    <a href="{% url 'export_alerts_csv' %}" class="btn btn-outline-secondary d-flex justify-content-between align-items-center text-decoration-none">
+                        <span><i class="bi bi-bell me-2"></i> Alerts History</span>
+                        <i class="bi bi-download"></i>
+                    </a>
+                    <a href="{% url 'export_visitors_csv' %}" class="btn btn-outline-secondary d-flex justify-content-between align-items-center text-decoration-none">
+                        <span><i class="bi bi-people me-2"></i> Visitor Logs</span>
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

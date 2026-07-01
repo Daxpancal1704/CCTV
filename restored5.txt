@@ -1,0 +1,808 @@
+Created At: 2026-06-29T10:37:17Z
+Completed At: 2026-06-29T10:37:18Z
+File Path: `file:///c:/private/Project/SmartCCTV/dashboard/views.py`
+Total Lines: 1804
+Total Bytes: 61349
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: from django.shortcuts import render
+2: from django.contrib.auth.decorators import login_required
+3: from django.http import StreamingHttpResponse, JsonResponse
+4: from django.views.decorators.csrf import csrf_exempt
+5: from django.views.decorators.http import require_http_methods
+6: import os
+7: import time
+8: import numpy as np
+9: from datetime import date, datetime, timedelta
+10: import cv2
+11: import torch
+12: from ultralytics import YOLO
+13: from .face_utils import recognize_face
+14: from .models import Snapshot, CameraLog, RecognitionLog, Employee
+15: from .models import Visitorlogo
+16: from .models import Alert
+17: from .models import Attendance
+18: from reportlab.pdfgen import canvas
+19: from django.http import HttpResponse
+20: from reportlab.lib.utils import ImageReader
+21: from django.core.mail import send_mail
+22: from django.conf import settings
+23: from .face_utils import detect_emotion
+24: from .face_utils import check_blacklist
+25: from .models import Camera, Employee, BlacklistPerson
+26: 
+27: model = YOLO("yolov8n.pt")
+28: if torch.cuda.is_available():
+29:     model.to("cuda")
+30:     print("GPU Enabled")
+31: else:
+32:     print("CPU Mode")
+33: 
+34: face_cascade = cv2.CascadeClassifier(
+35:     cv2.data.haarcascades +
+36:     'haarcascade_frontalface_default.xml'
+37: )
+38: 
+39: active_cameras = {}
+40: camera_indices = {}
+41: 
+42: failed_cameras_cooldown = {}
+43: 
+44: def get_camera_instance(camera_id):
+45:     """Returns a cv2 VideoCapture instance for a given camera ID, initializing if needed."""
+46:     global active_cameras, camera_enabled, camera_last_seen, failed_cameras_cooldown
+47:     try:
+48:         cam_obj = Camera.objects.get(id=camera_id)
+49:     except Camera.DoesNotExist:
+50:         return None
+51:         
+52:     cam_key = f"camera_{camera_id}"
+53:     camera_enabled.setdefault(cam_key, cam_obj.is_enabled)
+54:     
+55:     if cam_key not in active_cameras or not active_cameras[cam_key].isOpened():
+56:         now = datetime.now()
+57:         # Prevent aggressive retries that can crash OpenCV DSHOW backend
+58:         if cam_key in failed_cameras_cooldown:
+59:             if now - failed_cameras_cooldown[cam_key] < timedelta(seconds=15):
+60:                 return None
+61:                 
+62:         source = cam_obj.source_url
+63:         if not source:
+64:             source = cam_obj.camera_no - 1
+65:         elif source.isdigit():
+66:             source = int(source)
+67:             
+68:         try:
+69:             cap = cv2.VideoCapture(source, cv2.CAP_DSHOW if isinstance(source, int) else cv2.CAP_ANY)
+70:             if cap.isOpened():
+71:                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+72:                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+73:                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+74:                 cap.set(cv2.CAP_PROP_FPS, 30)
+75:                 active_cameras[cam_key] = cap
+76:                 camera_indices[cam_key] = source
+77:                 if cam_key in failed_cameras_cooldown:
+78:                     del failed_cameras_cooldown[cam_key]
+79:             else:
+80:                 failed_cameras_cooldown[cam_key] = now
+81:                 return None
+82:         except Exception as e:
+83:             print(f"Error initializing camera {source}: {e}")
+84:             failed_cameras_cooldown[cam_key] = now
+85:             return None
+86:             
+87:     return active_cameras[cam_key]
+88: 
+89: people_count = 0
+90: face_count = 0
+91: recognized_name = "Unknown"
+92: entry_count = 0
+93: exit_count = 0
+94: occupancy = 0
+95: previous_people = []
+96: last_unknown_time = None
+97: last_recognized_time = None
+98: last_recognized_name = None
+99: last_occupancy_time = None
+100: emotion = "Unknown"
+101: last_camera_status = {}
+102: last_camera_status_time = {}
+103: camera_last_seen = {}
+104: camera_enabled = {}
+105: last_email_time = {}
+106: 
+107: name_id_map = {}
+108: next_person_id = 1
+109: unknown_counter = 0
+110: current_person_id = None
+111: 
+112: 
+113: def reopen_camera(camera, device_index):
+114:     try:
+115:         if not camera.isOpened():
+116:             if isinstance(device_index, int):
+117:                 camera.open(device_index, cv2.CAP_DSHOW)
+118:             else:
+119:                 camera.open(device_index, cv2.CAP_ANY)
+120:         return camera.isOpened()
+121:     except Exception as e:
+122:         print(f"Failed to reopen camera {device_index}: {e}")
+123:         return False
+124: 
+125: 
+126: @login_required
+127: def home(request):
+128:     cameras = Camera.objects.all().order_by("camera_no")
+129:     
+130:     width, height, fps = 640, 480, 30
+131:     
+132:     snapshots = Snapshot.objects.order_by('-created_at')[:10]
+133:     logs = CameraLog.objects.order_by('-created_at')[:10]
+134:     visitor_count = Visitorlogo.objects.filter(detection_time__date=date.today()).count()
+135:     visitors = Visitorlogo.objects.order_by('-detection_time')[:10]
+136:     alerts = Alert.objects.order_by('-created_at')[:10]
+137:     attendance = Attendance.objects.order_by('-entry_time')[:10]
+138: 
+139:     # Camera online/offline counts for doughnut chart
+140:     online_count = 0
+141:     for cam in cameras:
+142:         cam_key = f"camera_{cam.id}"
+143:         if camera_is_active(cam.id, cam_key):
+144:             online_count += 1
+145:             
+146:     total_cams = cameras.count()
+147:     offline_count = max(0, total_cams - online_count)
+148: 
+149:     # Known vs Unknown face counts for doughnut chart
+150:     known_count = Visitorlogo.objects.exclude(visitor_name="Unknown").count()
+151:     unknown_count = Visitorlogo.objects.filter(visitor_name="Unknown").count()
+152: 
+153:     context = {
+154:         "width": width,
+155:         "height": height,
+156:         "fps": fps,
+157:         "snapshots": snapshots,
+158:         "logs": logs,
+159:         "visitor_count": visitor_count,
+160:         "visitors": visitors,
+161:         "alerts": alerts,
+162:         "attendance": attendance,
+163:         "cameras": cameras,
+164:         "online": online_count,
+165:         "offline": offline_count,
+166:         "known_count": known_count,
+167:         "unknown_count": unknown_count,
+168:     }
+169: 
+170:     return render(request, "dashboard/index.html", context)
+171: 
+172: @login_required
+173: def live_monitoring(request):
+174:     cameras = Camera.objects.filter(is_enabled=True).order_by("camera_no")
+175:     width, height, fps = 640, 480, 30
+176:     context = {
+177:         "cameras": cameras,
+178:         "width": width,
+179:         "height": height,
+180:         "fps": fps,
+181:     }
+182:     return render(request, "dashboard/live_monitoring.html", context)
+183: 
+184: @login_required
+185: def cameras(request):
+186:     cameras = Camera.objects.all().order_by("camera_no")
+187:     for cam in cameras:
+188:         cam_key = f"camera_{cam.id}"
+189:         cam_instance = active_cameras.get(cam_key)
+190:         cam.is_online = camera_is_active(cam_instance, cam_key) if cam_instance else False
+191:         
+192:     context = {"cameras": cameras}
+193:     return render(request, "dashboard/cameras.html", context)
+194: 
+195: @login_required
+196: def delete_camera(request, camera_id):
+197:     if request.method == "POST":
+198:         try:
+199:             cam = Camera.objects.get(id=camera_id)
+200:             cam_key = f"camera_{camera_id}"
+201:             
+202:             # release camera if open
+203:             if cam_key in active_cameras:
+204:                 if active_cameras[cam_key].isOpened():
+205:                     active_cameras[cam_key].release()
+206:                 del active_cameras[cam_key]
+207:                 
+208:             cam.delete()
+209:             return JsonResponse({"status": "success", "message": "Camera deleted successfully!"})
+210:         except Camera.DoesNotExist:
+211:             return JsonResponse({"status": "error", "message": "Camera not found"}, status=404)
+212:         except Exception as e:
+213:             return JsonResponse({"status": "error", "message": str(e)}, status=500)
+214:     return JsonResponse({"status": "error", "message": "Invalid request method."}, status=400)
+215: 
+216: @login_required
+217: def add_camera(request):
+218:     if request.method == "POST":
+219:         name = request.POST.get("name")
+220:         url = request.POST.get("url", "")
+221:         cam_type = request.POST.get("type", "Webcam")
+222:         
+223:         if not name:
+224:             return JsonResponse({"status": "error", "message": "Camera name is required."}, status=400)
+225:             
+226:         try:
+227:             # Determine next camera number
+228:             last_cam = Camera.objects.order_by('-camera_no').first()
+229:             next_no = (last_cam.camera_no + 1) if last_cam else 1
+230:             
+231:             Camera.objects.create(
+232:                 name=name,
+233:                 source_url=url,
+234:                 camera_type=cam_type,
+235:                 camera_no=next_no,
+236:                 is_enabled=True
+237:             )
+238:             return JsonResponse({"status": "success", "message": "Camera added successfully!"})
+239:         except Exception as e:
+240:             return JsonResponse({"status": "error", "message": str(e)}, status=500)
+241:             
+242:     return JsonResponse({"status": "error", "message": "Invalid request method."}, status=400)
+243: 
+244: @login_required
+245: def ai_events(request):
+246:     alerts = Alert.objects.order_by('-created_at')[:50]
+247:     logs = CameraLog.objects.order_by('-created_at')[:50]
+248:     context = {"alerts": alerts, "logs": logs}
+249:     return render(request, "dashboard/ai_events.html", context)
+250: 
+251: @login_required
+252: def attendance_view(request):
+253:     attendance = Attendance.objects.all()
+254:     
+255:     status = request.GET.get('status')
+256:     if status:
+257:         attendance = attendance.filter(status__iexact=status)
+258:         
+259:     date_filter = request.GET.get('date')
+260:     if date_filter:
+261:         attendance = attendance.filter(date=date_filter)
+262:         
+263:     attendance = attendance.order_by('-date', '-entry_time')[:50]
+264:     context = {
+265:         "attendance": attendance,
+266:         "current_status": status,
+267:         "current_date": date_filter
+268:     }
+269:     return render(request, "dashboard/attendance.html", context)
+270: 
+271: @login_required
+272: def export_attendance_csv(request):
+273:     import csv
+274:     from django.http import HttpResponse
+275: 
+276:     response = HttpResponse(content_type='text/csv')
+277:     response['Content-Disposition'] = 'attachment; filename="attendance_records.csv"'
+278:     
+279:     writer = csv.writer(response)
+280:     writer.writerow(['Employee / Person', 'Date', 'Entry Time', 'Exit Time', 'Status'])
+281:     
+282:     attendance = Attendance.objects.all()
+283:     
+284:     status = request.GET.get('status')
+285:     if status:
+286:         attendance = attendance.filter(status__iexact=status)
+287:         
+288:     date_filter = request.GET.get('date')
+289:     if date_filter:
+290:         attendance = attendance.filter(date=date_filter)
+291:         
+292:     attendance = attendance.order_by('-date', '-entry_time')
+293:     
+294:     for row in attendance:
+295:         entry = row.entry_time.strftime("%H:%M:%S") if row.entry_time else "--"
+296:         exit = row.exit_time.strftime("%H:%M:%S") if row.exit_time else "--"
+297:         writer.writerow([row.employee_name, row.date, entry, exit, row.status])
+298:         
+299:     return response
+300: 
+301: @login_required
+302: def visitors_view(request):
+303:     q = request.GET.get('q', '')
+304:     if q:
+305:         visitors = Visitorlogo.objects.filter(visitor_name__icontains=q).order_by('-detection_time')[:50]
+306:     else:
+307:         visitors = Visitorlogo.objects.order_by('-detection_time')[:50]
+308:     context = {"visitors": visitors}
+309:     return render(request, "dashboard/visitors.html", context)
+310: 
+311: @login_required
+312: def snapshots_view(request):
+313:     snapshots = Snapshot.objects.order_by('-created_at')[:50]
+314:     context = {"snapshots": snapshots}
+315:     return render(request, "dashboard/snapshots.html", context)
+316: 
+317: @login_required
+318: def logs_view(request):
+319:     logs = CameraLog.objects.order_by('-created_at')[:50]
+320:     context = {"logs": logs}
+321:     return render(request, "dashboard/logs.html", context)
+322: 
+323: @login_required
+324: def settings_view(request):
+325:     return render(request, "dashboard/settings.html", {})
+326: 
+327: @login_required
+328: def profile_view(request):
+329:     if request.method == 'POST':
+330:         user = request.user
+331:         user.first_name = request.POST.get('first_name', user.first_name)
+332:         user.last_name = request.POST.get('last_name', user.last_name)
+333:         user.email = request.POST.get('email', user.email)
+334:         user.save()
+335:         from django.contrib import messages
+336:         messages.success(request, 'Profile updated successfully!')
+337:         from django.shortcuts import redirect
+338:         return redirect('profile')
+339:     return render(request, "dashboard/profile.html")
+340: 
+341: @login_required
+342: def alerts_page(request):
+343:     alerts = Alert.objects.order_by('-created_at')[:100]
+344:     context = {"alerts": alerts}
+345:     return render(request, "dashboard/alerts_page.html", context)
+346: 
+347: @login_required
+348: def export_alerts_csv(request):
+349:     import csv
+350:     from django.http import HttpResponse
+351: 
+352:     response = HttpResponse(content_type='text/csv')
+353:     response['Content-Disposition'] = 'attachment; filename="system_alerts.csv"'
+354:     
+355:     writer = csv.writer(response)
+356:     writer.writerow(['Severity', 'Alert Type', 'Message', 'Timestamp'])
+357:     
+358:     alerts = Alert.objects.all().order_by('-created_at')
+359:     
+360:     for alert in alerts:
+361:         # Determine severity based on logic in template
+362:         severity = "Info"
+363:         if alert.alert_type in ["Intrusion", "Blacklisted Person"]:
+364:             severity = "Critical"
+365:         elif alert.alert_type == "Unknown Face":
+366:             severity = "Warning"
+367:             
+368:         timestamp = f" {alert.created_at.strftime('%Y-%m-%d %H:%M:%S')}" if alert.created_at else "--"
+369:         writer.writerow([severity, alert.alert_type, alert.message, timestamp])
+370:         
+371:     return response
+372: 
+373: @login_required
+374: def export_visitors_csv(request):
+375:     import csv
+376:     from django.http import HttpResponse
+377: 
+378:     response = HttpResponse(content_type='text/csv')
+379:     response['Content-Disposition'] = 'attachment; filename="visitor_logs.csv"'
+380:     
+381:     writer = csv.writer(response)
+382:     writer.writerow(['Visitor Name', 'Camera', 'Detection Time'])
+383:     
+384:     visitors = Visitorlogo.objects.all().order_by('-detection_time')
+385:     
+386:     for visitor in visitors:
+387:         timestamp = f" {visitor.detection_time.strftime('%Y-%m-%d %H:%M:%S')}" if visitor.detection_time else "--"
+388:         writer.writerow([visitor.visitor_name, visitor.camera_name, timestamp])
+389:         
+390:     return response
+391: 
+392: @login_required
+393: def reports_view(request):
+394:     return render(request, "dashboard/reports.html")
+395: 
+396: import base64
+397: from django.core.files.base import ContentFile
+398: from django.contrib import messages
+399: from django.shortcuts import render, redirect
+400: 
+401: @login_required
+402: def face_register(request):
+403:     if request.method == "POST":
+404:         name = request.POST.get("person_name")
+405:         role = request.POST.get("person_role")
+406:         gender = request.POST.get("person_gender")
+407:         
+408:         employee = Employee(name=name, role=role, gender=gender)
+409:         
+410:         # Helper function to process each angle
+411:         def process_image(angle):
+412:             base64_data = request.POST.get(f"base64_{angle}")
+413:             file_data = request.FILES.get(f"image_{angle}")
+414:             
+415:             if base64_data:
+416:                 # format: "data:image/jpeg;base64,/9j/4AAQ..."
+417:                 fmt, imgstr = base64_data.split(';base64,') 
+418:                 ext = fmt.split('/')[-1]
+419:                 data = ContentFile(base64.b64decode(imgstr), name=f"{name}_{angle}.{ext}")
+420:                 setattr(employee, f"image_{angle}", data)
+421:             elif file_data:
+422:                 setattr(employee, f"image_{angle}", file_data)
+423: 
+424:         process_image("front")
+425:         process_image("right")
+426:         process_image("left")
+427:         
+428:         employee.save()
+429:         messages.success(request, f"Successfully registered {name}!")
+430:         return redirect("face_register")
+431: 
+432:     registered_faces = Employee.objects.all().order_by('-id')
+433:     return render(request, "dashboard/face_register.html", {"registered_faces": registered_faces})
+434: 
+435: @login_required
+436: @require_http_methods(["POST"])
+437: def delete_face(request, pk):
+438:     try:
+439:         employee = Employee.objects.get(id=pk)
+440:         name = employee.name
+441:         employee.delete()
+442:         messages.success(request, f"Successfully deleted {name}.")
+443:     except Employee.DoesNotExist:
+444:         messages.error(request, "Employee not found.")
+445:     return redirect("face_register")
+446: 
+447: @login_required
+448: def wanted_persons(request):
+449:     if request.method == "POST":
+450:         name = request.POST.get("wanted_name")
+451:         image = request.FILES.get("wanted_image")
+452:         reason = request.POST.get("wanted_reason", "")
+453: 
+454:         if name and image:
+455:             BlacklistPerson.objects.create(name=name, image=image)
+456:             messages.success(request, f"'{name}' has been added to the watchlist. You will be alerted when detected on any CCTV.")
+457:         else:
+458:             messages.error(request, "Please provide both a name and an image.")
+459: 
+460:         return redirect("wanted_persons")
+461: 
+462:     persons = BlacklistPerson.objects.all().order_by('-added_at')
+463:     return render(request, "dashboard/wanted_persons.html", {"wanted_persons": persons})
+464: 
+465: @login_required
+466: @require_http_methods(["POST"])
+467: def delete_wanted(request, pk):
+468:     try:
+469:         person = BlacklistPerson.objects.get(id=pk)
+470:         name = person.name
+471:         if person.image:
+472:             person.image.delete(save=False)
+473:         person.delete()
+474:         messages.success(request, f"'{name}' has been removed from the watchlist.")
+475:     except BlacklistPerson.DoesNotExist:
+476:         messages.error(request, "Person not found.")
+477:     return redirect("wanted_persons")
+478: 
+479: snapshot_requests = {
+480:     "camera1": False,
+481:     "camera2": False,
+482: }
+483: 
+484: @login_required
+485: def capture_snapshot(request):
+486:     camera_id = request.GET.get('camera', '1')
+487:     cam_key = f"camera_{camera_id}"
+488:     global snapshot_requests
+489:     snapshot_requests[cam_key] = True
+490:     return JsonResponse({"status": "success", "message": f"Snapshot requested for camera {camera_id}."})
+491: 
+492: @login_required
+493: def download_snapshot(request, pk):
+494:     try:
+495:         from django.shortcuts import get_object_or_404
+496:         from django.http import HttpResponse, JsonResponse
+497:         import io
+498:         from PIL import Image
+499: 
+500:         snapshot = get_object_or_404(Snapshot, pk=pk)
+501:         fmt = request.GET.get('format', 'jpg').lower()
+502:         
+503:         # Determine content type and Pillow format
+504:         if fmt == 'png':
+505:             content_type = 'image/png'
+506:             pil_format = 'PNG'
+507:         elif fmt == 'pdf':
+508:             content_type = 'application/pdf'
+509:             pil_format = 'PDF'
+510:         elif fmt == 'bmp':
+511:             content_type = 'image/bmp'
+512:             pil_format = 'BMP'
+513:         else:
+514:             fmt = 'jpg'
+515:             content_type = 'image/jpeg'
+516:             pil_format = 'JPEG'
+517:             
+518:         with Image.open(snapshot.image.path) as img:
+519:             # Ensure RGB if needed
+520:             if img.mode in ("RGBA", "P"):
+521:                 img = img.convert("RGB")
+522:             
+523:             buffer = io.BytesIO()
+524:             img.save(buffer, format=pil_format)
+525:             
+526:             response = HttpResponse(buffer.getvalue(), content_type=content_type)
+527:             filename = f"snapshot_{snapshot.id}.{fmt}"
+528:             response['Content-Disposition'] = f'attachment; filename="{filename}"'
+529:             return response
+530:     except Exception as e:
+531:         return JsonResponse({"status": "error", "message": str(e)}, status=400)
+532: 
+533: 
+534: @login_required
+535: def delete_snapshot(request, pk):
+536:     from django.shortcuts import get_object_or_404, redirect
+537:     from django.contrib import messages
+538:     if request.method == 'POST':
+539:         snapshot = get_object_or_404(Snapshot, pk=pk)
+540:         if snapshot.image:
+541:             snapshot.image.delete(save=False)
+542:         snapshot.delete()
+543:     return redirect('snapshots')
+544: 
+545: def generate_frames(camera_id, camera_name, camera_key):
+546: 
+547:     global people_count
+548:     global face_count
+549:     # global recognized_name
+550:     global last_unknown_time
+551:     global last_recognized_time
+552:     global last_recognized_name
+553:     global last_occupancy_time
+554:     global camera_last_seen
+555:     # global emotion
+556:     global name_id_map, next_person_id, unknown_counter
+557:     
+558:     frame_count = 0
+559: 
+560:     recognized_name = "Unknown"
+561:     emotion = "Unknown"
+562:     current_person_id = None
+563:     
+564:     while True:
+565:         is_blacklisted = False
+566: 
+567:         if not camera_enabled.get(camera_key, True):
+568:             camera = active_cameras.get(camera_key)
+569:             if camera is not None and camera.isOpened():
+570:                 camera.release()
+571:             blank = np.zeros((480, 640, 3), dtype=np.uint8)
+572:             cv2.putText(
+573:                 blank,
+574:                 "Camera Stopped",
+575:                 (20, 260),
+576:                 cv2.FONT_HERSHEY_SIMPLEX,
+577:                 1,
+578:                 (0, 0, 255),
+579:                 2
+580:             )
+581:             ret, buffer = cv2.imencode(
+582:                 ".jpg",
+583:                 blank,
+584:                 [cv2.IMWRITE_JPEG_QUALITY, 40]
+585:             )
+586:             frame_bytes = buffer.tobytes()
+587:             yield (
+588:                 b'--frame\r\n'
+589:                 b'Content-Type: image/jpeg\r\n\r\n'
+590:                 + frame_bytes +
+591:                 b'\r\n'
+592:             )
+593:             time.sleep(0.2)
+594:             continue
+595: 
+596:         camera = active_cameras.get(camera_key)
+597:         if camera is None or not camera.isOpened():
+598:             camera = get_camera_instance(camera_id)
+599:             
+600:         success, frame = False, None
+601:         if camera is not None and camera.isOpened():
+602:             success, frame = camera.read()
+603: 
+604:         if camera_key == "camera2":
+605:             print(
+606:                 "CAM2:",
+607:                 success,
+608:                 frame.shape if success else None
+609:             )
+610: 
+611:         if not success or frame is None or (hasattr(frame, 'size') and frame.size == 0):
+612:             print(f"{camera_name} read failure: success={success}, frame={None if frame is None else getattr(frame, 'shape', 'unknown')}")
+613:             
+614:             if camera is not None:
+615:                 camera.release()
+616:             if camera_key in active_cameras:
+617:                 del active_cameras[camera_key]
+618:                 
+619:             # Camera not available – yield a placeholder and keep retrying
+620:             placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+621:             placeholder[:] = (30, 30, 30)  # dark background
+622:             cv2.putText(
+623:                 placeholder,
+624:                 "Camera Not Available",
+625:                 (100, 220),
+626:                 cv2.FONT_HERSHEY_SIMPLEX,
+627:                 1.0,
+628:                 (0, 100, 255),
+629:                 2,
+630:             )
+631:             cv2.putText(
+632:                 placeholder,
+633:                 "USB Camera Not Connected",
+634:                 (120, 260),
+635:                 cv2.FONT_HERSHEY_SIMPLEX,
+636:                 0.7,
+637:                 (180, 180, 180),
+638:                 1,
+639:             )
+640:             cv2.putText(
+641:                 placeholder,
+642:                 "Retrying...",
+643:                 (240, 300),
+644:                 cv2.FONT_HERSHEY_SIMPLEX,
+645:                 0.6,
+646:                 (0, 200, 100),
+647:                 1,
+648:             )
+649:             _ret, _buf = cv2.imencode(
+650:                 ".jpg",
+651:                 placeholder,
+652:                 [cv2.IMWRITE_JPEG_QUALITY, 50]
+653:             )
+654:             yield (
+655:                 b'--frame\r\n'
+656:                 b'Content-Type: image/jpeg\r\n\r\n'
+657:                 + _buf.tobytes() +
+658:                 b'\r\n'
+659:             )
+660:             time.sleep(2)  # wait before retrying
+661:             continue
+662: 
+663:         camera_last_seen[camera_key] = datetime.now()
+664:         frame_count += 1
+665: 
+666:         # ==========================
+667:         # SNAPSHOT HANDLING
+668:         # ==========================
+669:         if snapshot_requests.get(camera_key):
+670:             try:
+671:                 now = datetime.now()
+672:                 filename = now.strftime("%Y%m%d_%H%M%S") + ".jpg"
+673:                 snap_folder = os.path.join("media", "snapshots")
+674:                 os.makedirs(snap_folder, exist_ok=True)
+675:                 snap_path = os.path.join(snap_folder, filename)
+676:                 
+677:                 cv2.imwrite(snap_path, frame)
+678:                 
+679:                 Snapshot.objects.create(
+680:                     image=f"snapshots/{filename}",
+681:                     camera_name=camera_name
+682:                 )
+683:                 print(f"Snapshot saved for {camera_name}")
+684:             except Exception as e:
+685:                 print(f"Error saving snapshot: {e}")
+686:             
+687:             snapshot_requests[camera_key] = False
+688: 
+689:         # ==========================
+690:         # YOLO OBJECT DETECTION
+691:         # ==========================
+692: 
+693:         yolo_results = model(frame, 
+694:                              imgsz=320, 
+695:                              conf=0.25,
+696:                              verbose=False)
+697:         phone_count = 0
+698:         object_labels = []
+699:         people_count = 0
+700: 
+701:         if len(yolo_results) > 0 and len(yolo_results[0].boxes) > 0:
+702:             result = yolo_results[0]
+703: 
+704:             for xyxy, cls_id, conf in zip(
+705:                 result.boxes.xyxy,
+706:                 result.boxes.cls,
+707:                 result.boxes.conf
+708:             ):
+709:                 x1, y1, x2, y2 = map(int, xyxy.tolist())
+710:                 class_id = int(cls_id.item())
+711:                 label = result.names[class_id]
+712:                 if label.lower() == "person":
+713:                     people_count += 1
+714: 
+715:                 object_labels.append(label)
+716: 
+717:                 cv2.rectangle(
+718:                     frame,
+719:                     (x1, y1),
+720:                     (x2, y2),
+721:                     (0, 255, 0),
+722:                     2
+723:                 )
+724: 
+725:                 cv2.putText(
+726:                     frame,
+727:                     f"{label} {conf:.2f}",
+728:                     (x1, y1 - 10),
+729:                     cv2.FONT_HERSHEY_SIMPLEX,
+730:                     0.6,
+731:                     (0, 255, 0),
+732:                     2
+733:                 )
+734: 
+735:                 if label.lower() in ["cell phone", "phone", "mobile phone"]:
+736:                     phone_count += 1
+737: 
+738:         phone_text = f"Phones: {phone_count}"
+739: 
+740: 
+741: 
+742:        
+743: 
+744:         # ==========================
+745:         # FACE DETECTION
+746:         # ==========================
+747: 
+748:         gray = cv2.cvtColor(
+749:             frame,
+750:             cv2.COLOR_BGR2GRAY
+751:         )
+752: 
+753:         faces = face_cascade.detectMultiScale(
+754:             gray,
+755:             scaleFactor=1.1,
+756:             minNeighbors=4,
+757:             minSize=(50, 50)
+758:         )
+759: 
+760:         face_count = len(faces)
+761:         # people_count = face_count
+762: 
+763:         # ==========================
+764:         # OCCUPANCY ALERT
+765:         # ==========================
+766: 
+767:         MAX_PEOPLE = 2
+768: 
+769:         if people_count > MAX_PEOPLE:
+770: 
+771:             now = datetime.now()
+772: 
+773:             if (
+774:                 last_occupancy_time is None
+775:                 or
+776:                 now - last_occupancy_time > timedelta(seconds=60)
+777:             ):
+778: 
+779:                 Alert.objects.create(
+780: 
+781:                     alert_type="Occupancy Alert",
+782: 
+783:                     message=f"{people_count} people detected in {camera_name}"
+784: 
+785:                 )
+786: 
+787:                 print(
+788:                     f"Occupancy Alert: {people_count} people"
+789:                 )
+790: 
+791:                 last_occupancy_time = now
+792: 
+793:         # only reset when face disappears
+794:         if len(faces) == 0:
+795:             recognized_name = "Unknown"
+796: 
+797:         # ==========================
+798:         # FACE RECOGNITION
+799:         # ==========================
+800:         if len(faces) > 0 and frame_count % 15 == 0:
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

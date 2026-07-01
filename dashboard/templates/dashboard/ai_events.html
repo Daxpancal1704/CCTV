@@ -1,0 +1,589 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}AI Detections - Smart CCTV{% endblock %}
+
+{% block content %}
+<style>
+    /* Custom overrides for this dashboard */
+    .dashboard-stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 16px 16px 0 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .nav-tabs .nav-link {
+        color: var(--text-muted);
+        border: none;
+        padding: 12px 16px;
+        font-weight: 500;
+        background: transparent;
+    }
+    .nav-tabs .nav-link.active {
+        color: var(--accent);
+        border-bottom: 2px solid var(--accent) !important;
+        background: transparent !important;
+    }
+    .chart-container {
+        position: relative;
+        height: 100%;
+        width: 100%;
+    }
+    .recent-detection-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .recent-detection-item img {
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        object-fit: cover;
+    }
+    .live-feed-card {
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        aspect-ratio: 16/9;
+        background: #000;
+        border: 1px solid var(--card-border);
+    }
+    .live-feed-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .live-feed-header {
+        background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        padding: 8px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .live-feed-footer {
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        padding: 8px 12px;
+    }
+    .bounding-box {
+        position: absolute;
+        border: 2px solid;
+        z-index: 5;
+    }
+    .stats-progress-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--input-border);
+    }
+    .camera-table td {
+        vertical-align: middle;
+        font-size: 0.85rem;
+    }
+    .camera-table th {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--card-border);
+    }
+    .mini-progress {
+        height: 3px;
+        border-radius: 2px;
+        margin-top: 6px;
+        background: var(--input-bg);
+        width: 100%;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-end mb-4">
+    <div>
+        <h2 class="mb-1 fw-bold"><i class="bi bi-cpu me-2 text-primary"></i>AI Detections</h2>
+        <div class="text-muted small">Home / AI Detections</div>
+    </div>
+</div>
+
+<!-- Top Stats Row -->
+<div class="row g-3 mb-4">
+    <!-- Stat 1 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-cpu-fill text-primary"></i> Total Detections
+            </div>
+            <h3 class="mb-1 fw-bold">{{ total_detections|default:"0" }}</h3>
+            <div class="small {% if total_change >= 0 %}text-success{% else %}text-danger{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if total_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ total_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline1"></canvas></div>
+        </div>
+    </div>
+    <!-- Stat 2 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-person-bounding-box text-success"></i> Known Faces
+            </div>
+            <h3 class="mb-1 fw-bold">{{ known_faces|default:"0" }}</h3>
+            <div class="small {% if known_change >= 0 %}text-success{% else %}text-danger{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if known_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ known_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline2"></canvas></div>
+        </div>
+    </div>
+    <!-- Stat 3 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-person-x-fill text-danger"></i> Unknown Faces
+            </div>
+            <h3 class="mb-1 fw-bold">{{ unknown_faces|default:"0" }}</h3>
+            <div class="small {% if unknown_change >= 0 %}text-danger{% else %}text-success{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if unknown_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ unknown_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline3"></canvas></div>
+        </div>
+    </div>
+    <!-- Stat 4 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-mask text-warning"></i> Mask Detected
+            </div>
+            <h3 class="mb-1 fw-bold">{{ mask_detected|default:"0" }}</h3>
+            <div class="small {% if mask_change >= 0 %}text-success{% else %}text-danger{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if mask_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ mask_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline4"></canvas></div>
+        </div>
+    </div>
+    <!-- Stat 5 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-people text-info"></i> Multiple Faces
+            </div>
+            <h3 class="mb-1 fw-bold">{{ multiple_faces|default:"0" }}</h3>
+            <div class="small {% if multiple_change >= 0 %}text-success{% else %}text-danger{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if multiple_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ multiple_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline5"></canvas></div>
+        </div>
+    </div>
+    <!-- Stat 6 -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="dashboard-stat-card h-100">
+            <div class="d-flex align-items-center gap-2 text-muted small mb-2">
+                <i class="bi bi-person-exclamation" style="color: #8B5CF6;"></i> Face Quality Issues
+            </div>
+            <h3 class="mb-1 fw-bold">{{ face_quality|default:"0" }}</h3>
+            <div class="small {% if quality_change >= 0 %}text-danger{% else %}text-success{% endif %} mb-2" style="font-size: 0.75rem;"><i class="bi {% if quality_change >= 0 %}bi-arrow-up-short{% else %}bi-arrow-down-short{% endif %}"></i> {{ quality_change|default:"0"|floatformat:"1" }}% from yesterday</div>
+            <div style="height: 30px; margin-top: auto; margin-left: -16px; margin-right: -16px;"><canvas id="sparkline6"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Section -->
+<div class="card dashboard-card mb-4" style="border-radius: 12px;">
+    <div class="card-body p-4">
+        <!-- Filters -->
+        <!-- Filters -->
+        <form method="GET" action="{% url 'ai_events' %}" class="d-flex flex-wrap gap-3 mb-4">
+            <select name="period" class="form-select bg-dark text-white border-secondary w-auto shadow-sm">
+                <option value="today" {% if request.GET.period == 'today' %}selected{% endif %}>Today</option>
+                <option value="yesterday" {% if request.GET.period == 'yesterday' %}selected{% endif %}>Yesterday</option>
+                <option value="7days" {% if request.GET.period == '7days' %}selected{% endif %}>Last 7 Days</option>
+            </select>
+            <div class="input-group w-auto shadow-sm">
+                <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-calendar3"></i></span>
+                <input type="date" name="date_range" class="form-control bg-dark text-white border-secondary" value="{{ request.GET.date_range }}">
+                <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-calendar-event"></i></span>
+            </div>
+            <select name="camera" class="form-select bg-dark text-white border-secondary w-auto shadow-sm">
+                <option value="">All Cameras</option>
+                {% for cam in cameras %}
+                <option value="{{ cam.name }}" {% if request.GET.camera == cam.name %}selected{% endif %}>{{ cam.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="detection_type" class="form-select bg-dark text-white border-secondary w-auto shadow-sm">
+                <option value="">All Detection Types</option>
+                <option value="Known" {% if request.GET.detection_type == 'Known' %}selected{% endif %}>Known Face</option>
+                <option value="Unknown" {% if request.GET.detection_type == 'Unknown' %}selected{% endif %}>Unknown Face</option>
+                <option value="Mask" {% if request.GET.detection_type == 'Mask' %}selected{% endif %}>Mask Detected</option>
+                <option value="Multiple" {% if request.GET.detection_type == 'Multiple' %}selected{% endif %}>Multiple Faces</option>
+                <option value="Quality" {% if request.GET.detection_type == 'Quality' %}selected{% endif %}>Face Quality</option>
+            </select>
+            <button type="submit" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm"><i class="bi bi-funnel"></i> Filter</button>
+            <a href="{% url 'ai_events' %}" class="btn btn-outline-secondary d-flex align-items-center shadow-sm">Clear</a>
+            <button type="submit" formaction="{% url 'export_ai_events_csv' %}" class="btn btn-outline-secondary d-flex align-items-center shadow-sm ms-auto" title="Download Report"><i class="bi bi-download"></i></button>
+        </form>
+
+        <div class="row g-4">
+            <!-- Pie Chart -->
+            <div class="col-lg-4">
+                <h6 class="mb-4 fw-semibold">Detections by Type</h6>
+                <div class="d-flex align-items-center h-100 flex-column flex-xl-row">
+                    <div style="width: 160px; height: 160px; position: relative; flex-shrink: 0;" class="mb-3 mb-xl-0">
+                        <canvas id="donutChart"></canvas>
+                        <div class="position-absolute top-50 start-50 translate-middle text-center pointer-events-none">
+                            <h4 class="mb-0 fw-bold" style="font-size: 1.2rem;">{{ total_pie }}</h4>
+                            <div class="small text-muted" style="font-size: 0.7rem;">Total</div>
+                        </div>
+                    </div>
+                    <div class="ms-xl-3 flex-grow-1 w-100">
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span class="text-muted d-flex align-items-center gap-2 text-nowrap"><i class="bi bi-circle-fill text-success" style="font-size: 0.5rem;"></i> Known Faces</span>
+                            <span class="text-nowrap ms-2"><strong class="me-1">{{ known_faces }}</strong> <span class="text-muted">({% if known_pct %}{{ known_pct }}{% else %}0{% endif %}%)</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span class="text-muted d-flex align-items-center gap-2 text-nowrap"><i class="bi bi-circle-fill text-danger" style="font-size: 0.5rem;"></i> Unknown Faces</span>
+                            <span class="text-nowrap ms-2"><strong class="me-1">{{ unknown_faces }}</strong> <span class="text-muted">({% if unknown_pct %}{{ unknown_pct }}{% else %}0{% endif %}%)</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span class="text-muted d-flex align-items-center gap-2 text-nowrap"><i class="bi bi-circle-fill text-warning" style="font-size: 0.5rem;"></i> Mask Detected</span>
+                            <span class="text-nowrap ms-2"><strong class="me-1">{{ mask_detected }}</strong> <span class="text-muted">({% if mask_pct %}{{ mask_pct }}{% else %}0{% endif %}%)</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span class="text-muted d-flex align-items-center gap-2 text-nowrap"><i class="bi bi-circle-fill text-info" style="font-size: 0.5rem;"></i> Multiple Faces</span>
+                            <span class="text-nowrap ms-2"><strong class="me-1">{{ multiple_faces }}</strong> <span class="text-muted">({% if multiple_pct %}{{ multiple_pct }}{% else %}0{% endif %}%)</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small">
+                            <span class="text-muted d-flex align-items-center gap-2 text-nowrap"><i class="bi bi-circle-fill" style="color: #8B5CF6; font-size: 0.5rem;"></i> Face Quality Issues</span>
+                            <span class="text-nowrap ms-2"><strong class="me-1">{{ face_quality }}</strong> <span class="text-muted">({% if quality_pct %}{{ quality_pct }}{% else %}0{% endif %}%)</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Chart -->
+            <div class="col-lg-5 position-relative">
+                <div class="d-none d-lg-block position-absolute" style="left: 0; top: 0; bottom: 0; width: 1px; background: var(--card-border);"></div>
+                <div class="d-none d-lg-block position-absolute" style="right: 0; top: 0; bottom: 0; width: 1px; background: var(--card-border);"></div>
+                
+                <div class="px-lg-4 h-100 d-flex flex-column">
+                    <h6 class="mb-3 fw-semibold">Detections Trend <span class="text-muted fw-normal small">(Last 7 Days)</span></h6>
+                    <div class="flex-grow-1" style="min-height: 250px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Detections -->
+            <div class="col-lg-3 ps-lg-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-semibold">Recent Detections</h6>
+                    <a href="#" class="small text-muted text-decoration-none hover-text-primary">View All</a>
+                </div>
+                
+                {% for alert in alerts|slice:":5" %}
+                <div class="recent-detection-item">
+                    <div style="width: 40px; height: 40px; background: #2c3338; border-radius: 6px; display:flex; align-items:center; justify-content:center; flex-shrink: 0;">
+                        <i class="bi 
+                            {% if alert.alert_type == 'Intrusion' or alert.alert_type == 'Blacklisted Person' %}bi-exclamation-triangle text-danger
+                            {% elif alert.alert_type == 'Unknown Face' or alert.alert_type == 'Face' %}bi-person-x text-warning
+                            {% elif alert.alert_type == 'Camera Offline' %}bi-camera-video-off text-secondary
+                            {% elif alert.alert_type == 'Motion' %}bi-arrows-move text-info
+                            {% else %}bi-person text-secondary{% endif %}">
+                        </i>
+                    </div>
+                    <div class="flex-grow-1 text-truncate pe-2">
+                        <div class="small fw-semibold text-truncate
+                            {% if alert.alert_type == 'Intrusion' or alert.alert_type == 'Blacklisted Person' %}text-danger
+                            {% elif alert.alert_type == 'Unknown Face' or alert.alert_type == 'Face' %}text-warning
+                            {% elif alert.alert_type == 'Camera Offline' %}text-secondary
+                            {% elif alert.alert_type == 'Motion' %}text-info
+                            {% else %}text-success{% endif %}">
+                            {{ alert.alert_type }}
+                        </div>
+                        <div class="text-muted text-truncate" style="font-size: 0.75rem;" title="{{ alert.message }}">{{ alert.message }}</div>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <div class="text-muted" style="font-size: 0.7rem;">{{ alert.created_at|date:"H:i A" }}</div>
+                        <div class="small fw-semibold text-muted">{{ alert.created_at|date:"d M" }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted small">No recent detections</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Live AI Detection Feed removed --><!-- Bottom Section: Table & Stats -->
+<div class="row g-4">
+    <!-- Camera Table -->
+    <div class="col-lg-8">
+        <h6 class="mb-3 fw-semibold">AI Detection by Camera</h6>
+        <div class="card dashboard-card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover camera-table mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-3 py-3">Camera Name</th>
+                            <th class="py-3">Known Faces</th>
+                            <th class="py-3">Unknown Faces</th>
+                            <th class="py-3">Mask Detected</th>
+                            <th class="py-3">Multiple Faces</th>
+                            <th class="py-3">Face Quality Issues</th>
+                            <th class="pe-3 py-3 text-end">Total Detections</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in camera_stats %}
+                        <tr>
+                            <td class="ps-3 text-muted">{{ forloop.counter }}. &nbsp; <span class="text-white">{{ stat.name }}</span></td>
+                            <td>{{ stat.known }} <div class="mini-progress"><div class="bg-success h-100 rounded" style="width: {{ stat.known_pct }}%"></div></div></td>
+                            <td>{{ stat.unknown }} <div class="mini-progress"><div class="bg-danger h-100 rounded" style="width: {{ stat.unknown_pct }}%"></div></div></td>
+                            <td>{{ stat.mask }} <div class="mini-progress"><div class="bg-warning h-100 rounded" style="width: {{ stat.mask_pct }}%"></div></div></td>
+                            <td>{{ stat.multiple }} <div class="mini-progress"><div class="bg-info h-100 rounded" style="width: {{ stat.multiple_pct }}%"></div></div></td>
+                            <td>{{ stat.quality }} <div class="mini-progress"><div class="h-100 rounded" style="width: {{ stat.quality_pct }}%; background: #8B5CF6;"></div></div></td>
+                            <td class="pe-3 text-end fw-semibold">{{ stat.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">No data available for cameras.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Overall Stats -->
+    <div class="col-lg-4">
+        <h6 class="mb-3 fw-semibold">Detection Statistics</h6>
+        <div class="card dashboard-card p-4 shadow-sm h-100">
+            
+            <div class="mb-4">
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">Total System Alerts</span>
+                    <span class="fw-semibold">{{ total_alerts_db }}</span>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">Total Recognitions Logged</span>
+                    <span class="fw-semibold">{{ total_recognitions_db }}</span>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">Total Snapshots Saved</span>
+                    <span class="fw-semibold">{{ total_snapshots }}</span>
+                </div>
+            </div>
+            
+            <div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span class="text-muted">Active Cameras</span>
+                    <span class="fw-semibold">{{ active_cameras_count }}</span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    </div>
+</div> <!-- End card-body -->
+</div> <!-- End card -->
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Shared chart options
+    Chart.defaults.color = '#9CA3AF';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+
+    // 1. Sparklines for Top Cards
+    const sparklineOptions = {
+        type: 'line',
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: { x: { display: false }, y: { display: false, min: 0 } },
+            elements: { point: { radius: 0 }, line: { tension: 0.4, borderWidth: 2 } },
+            layout: { padding: 0 }
+        }
+    };
+
+    const createSparkline = (id, color, data) => {
+        const ctx = document.getElementById(id).getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 30);
+        gradient.addColorStop(0, color + '60'); // 40% opacity
+        gradient.addColorStop(1, color + '00'); // 0% opacity
+        
+        new Chart(ctx, {
+            ...sparklineOptions,
+            data: {
+                labels: ['1','2','3','4','5','6','7'],
+                datasets: [{
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: gradient,
+                    fill: true
+                }]
+            }
+        });
+    };
+
+    createSparkline('sparkline1', '#2563EB', {{ trend_known|safe }}.map((v, i) => v + {{ trend_unknown|safe }}[i]));
+    createSparkline('sparkline2', '#10B981', {{ trend_known|safe }});
+    createSparkline('sparkline3', '#EF4444', {{ trend_unknown|safe }});
+    createSparkline('sparkline4', '#F59E0B', {{ trend_mask|safe }});
+    createSparkline('sparkline5', '#06B6D4', {{ trend_multiple|safe }});
+    createSparkline('sparkline6', '#8B5CF6', {{ trend_quality|safe }});
+
+    // 2. Donut Chart
+    const donutCtx = document.getElementById('donutChart').getContext('2d');
+    new Chart(donutCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Known Faces', 'Unknown Faces', 'Mask Detected', 'Multiple Faces', 'Face Quality Issues'],
+            datasets: [{
+                data: [{{ known_faces }}, {{ unknown_faces }}, {{ mask_detected }}, {{ multiple_faces }}, {{ face_quality }}],
+                backgroundColor: ['#10B981', '#EF4444', '#F59E0B', '#06B6D4', '#8B5CF6'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                    titleColor: '#F9FAFB',
+                    bodyColor: '#F9FAFB',
+                    borderColor: '#1E293B',
+                    borderWidth: 1,
+                    padding: 10
+                }
+            }
+        }
+    });
+
+    // 3. Trend Line Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels|safe }},
+            datasets: [
+                {
+                    label: 'Known Faces',
+                    data: {{ trend_known|safe }},
+                    borderColor: '#10B981',
+                    backgroundColor: '#10B981',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Unknown Faces',
+                    data: {{ trend_unknown|safe }},
+                    borderColor: '#EF4444',
+                    backgroundColor: '#EF4444',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Mask Detected',
+                    data: {{ trend_mask|safe }},
+                    borderColor: '#F59E0B',
+                    backgroundColor: '#F59E0B',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Multiple Faces',
+                    data: {{ trend_multiple|safe }},
+                    borderColor: '#06B6D4',
+                    backgroundColor: '#06B6D4',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Face Quality Issues',
+                    data: {{ trend_quality|safe }},
+                    borderColor: '#8B5CF6',
+                    backgroundColor: '#8B5CF6',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 6,
+                        padding: 20,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                    titleColor: '#F9FAFB',
+                    bodyColor: '#F9FAFB',
+                    borderColor: '#1E293B',
+                    borderWidth: 1,
+                    padding: 10
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false, drawBorder: false }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                    min: 0,
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    function updateClocks() {
+        const now = new Date();
+        let hrs = now.getHours();
+        const ampm = hrs >= 12 ? 'PM' : 'AM';
+        hrs = hrs % 12;
+        hrs = hrs ? hrs : 12;
+        const hStr = String(hrs).padStart(2, '0');
+        const minStr = String(now.getMinutes()).padStart(2, '0');
+        const secStr = String(now.getSeconds()).padStart(2, '0');
+        const formatted = `${hStr}:${minStr}:${secStr} ${ampm}`;
+        document.querySelectorAll('.time-overlay').forEach(el => {
+            el.textContent = formatted;
+        });
+    }
+    setInterval(updateClocks, 1000);
+    updateClocks();
+
+    function makeFullscreen(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) { /* Safari */
+            el.webkitRequestFullscreen();
+        }
+    }
+});
+</script>
+{% endblock %}

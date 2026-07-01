@@ -1,775 +1,906 @@
+{% extends "dashboard/base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart CCTV Monitoring System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard-ui.css' %}">
-    <link rel="stylesheet" href="{% static 'css/custom-dashboard.css' %}">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-+bZQ5Q6m5Q5a0bZ1Yh2QzY4Gk2K7Q5Q5q5b5Q5Q5Q5Q=" crossorigin="anonymous"></script>
-    <style>
-        :root{
-            --bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-color: #212529;
-            --muted: #6c757d;
-            --accent: #007bff;
-            --header-gradient-start: #667eea;
-            --header-gradient-end: #764ba2;
-            --live-bg: #000000;
-            --status-online-bg: #d4edda;
-            --status-online-color: #155724;
-            --status-offline-bg: #f8d7da;
-            --status-offline-color: #721c24;
-        }
-        [data-theme="dark"]{
-            --bg: #0f1720;
-            --card-bg: #0b1220;
-            --text-color: #ffffff;
-            --muted: #cbd5e1;
-            --accent: #66a0ff;
-            --header-gradient-start: #22303f;
-            --header-gradient-end: #2b4258;
-            --live-bg: #000000;
-            --status-online-bg: #164a2b;
-            --status-online-color: #c7f7d7;
-            --status-offline-bg: #4a1518;
-            --status-offline-color: #ffd6d8;
-        }
-        html,body{height:100%;}
-        body {
-            background-color: var(--bg);
-            color: var(--text-color);
-            -webkit-font-smoothing:antialiased;
-            -moz-osx-font-smoothing:grayscale;
-        }
-        .card{background:var(--card-bg);border:0;border-radius:8px}
-        .stats-card {
-            border-left: 6px solid var(--accent);
-            transition: transform 0.18s ease, box-shadow 0.18s ease;
-        }
-        .stats-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 8px 24px rgba(2,6,23,0.12);
-        }
-        .stats-value {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
-        .header {
-            background: linear-gradient(135deg, var(--header-gradient-start) 0%, var(--header-gradient-end) 100%);
-            color: var(--card-bg);
-            padding: 18px;
-            border-radius: 8px;
-            margin-bottom: 18px;
-        }
-        .live-feed {
-            background-color: var(--live-bg);
-            border-radius: 6px;
-            overflow: hidden;
-            min-height:180px;
-            display:flex;align-items:center;justify-content:center;
-        }
-        .feed-title {
-            color: var(--muted);
-            font-weight: 700;
-            margin-top: 12px;
-            margin-bottom: 10px;
-        }
-        .snapshot-img {
-            height: 200px;
-            width: 100%;
-            object-fit: cover;
-            border-radius: 6px;
-            border: 1px solid rgba(0,0,0,0.06);
-        }
-        .table-responsive {border-radius:6px;overflow:hidden}
-        .status-badge {padding:6px 14px;border-radius:20px;font-weight:700}
-        .status-online{background:var(--status-online-bg);color:var(--status-online-color)}
-        .status-offline{background:var(--status-offline-bg);color:var(--status-offline-color)}
-        .camera-status-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
-        .camera-status-name{font-size:0.9rem;font-weight:700}
-        .camera-status-time{display:block;font-size:0.78rem;margin-top:3px;color:var(--muted)}
-        .text-muted{color:var(--muted) !important}
-        /* Force all common text elements to use theme color in dark mode */
-        [data-theme="dark"] body,
-        [data-theme="dark"] .card,
-        [data-theme="dark"] .card-body,
-        [data-theme="dark"] .card-header,
-        [data-theme="dark"] .table,
-        [data-theme="dark"] .table th,
-        [data-theme="dark"] .table td,
-        [data-theme="dark"] h1,
-        [data-theme="dark"] h2,
-        [data-theme="dark"] h3,
-        [data-theme="dark"] h4,
-        [data-theme="dark"] h5,
-        [data-theme="dark"] h6,
-        [data-theme="dark"] p,
-        [data-theme="dark"] span,
-        [data-theme="dark"] a,
-        [data-theme="dark"] small,
-        [data-theme="dark"] li,
-        [data-theme="dark"] td,
-        [data-theme="dark"] th,
-        [data-theme="dark"] label,
-        [data-theme="dark"] button,
-        [data-theme="dark"] input,
-        [data-theme="dark"] select,
-        [data-theme="dark"] textarea {
-            color: var(--text-color) !important;
-        }
-        .btn-primary{background:var(--accent);border-color:var(--accent)}
-        .snapshot-btn-icon{margin-right:8px}
-        @media (max-width:767px){.stats-value{font-size:1.6rem}}
-    </style>
-</head>
-
-<body>
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="header">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h2 class="mb-0">📹 Smart CCTV Monitoring System</h2>
-            </div>
-            <div class="col-md-6 text-end d-flex align-items-center justify-content-end">
-                <h5 id="clock" class="mb-0">--:--:--</h5>
-            </div>
-        </div>
-    </div>
-
-    <!-- Stats Row -->
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <h6 class="text-muted">Total Cameras</h6>
-                    <div class="stats-value">2</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <h6 class="text-muted">Camera Status</h6>
-                    <div class="mt-2">
-                        <div class="camera-status-row">
-                            <span class="camera-status-name">Camera 1</span>
-                            <span id="camera1-status" class="status-badge status-offline">Checking...</span>
-                        </div>
-                        <small id="camera1-time" class="camera-status-time text-muted"></small>
-                        <div class="camera-status-row">
-                            <span class="camera-status-name">Camera 2</span>
-                            <span id="camera2-status" class="status-badge status-offline">Checking...</span>
-                        </div>
-                        <small id="camera2-time" class="camera-status-time text-muted"></small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <h6 class="text-muted">Faces Detected</h6>
-                    <div class="stats-value" id="face-count">0</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-            <div class="card stats-card">
-                <div class="card-body">
-                    <h6 class="text-muted">People Count</h6>
-                    <div class="stats-value" id="people-count">0</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Entry / Exit / Occupancy -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card stats-card text-center">
-                <div class="card-body">
-                    <h6 class="text-muted">Entry Count</h6>
-                    <div class="stats-value" id="entry-count">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card stats-card text-center">
-                <div class="card-body">
-                    <h6 class="text-muted">Exit Count</h6>
-                    <div class="stats-value" id="exit-count">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card stats-card text-center">
-                <div class="card-body">
-                    <h6 class="text-muted">Occupancy</h6>
-                    <div class="stats-value" id="occupancy-count">0</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Live Feed Section -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Live Camera Feeds</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="feed-title">🎥 Camera 1 (Laptop Camera)</p>
-                            <div class="live-feed">
-                                <img src="{% url 'video_feed_cam1' %}" class="img-fluid w-100" alt="Camera 1">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="feed-title">🎥 Camera 2 (USB Camera)</p>
-                            <div class="live-feed">
-                                <img src="{% url 'video_feed_cam2' %}" class="img-fluid w-100" alt="Camera 2">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-3 d-flex flex-wrap gap-2">
-                        <button id="snapshot-btn" class="btn btn-primary btn-lg" onclick="captureSnapshot()">
-                            <i>📸</i> Capture Snapshot
-                        </button>
-                        <button id="camera1-start-btn" class="btn btn-success btn-lg" onclick="controlCamera(1, 'start')">
-                            ▶ Start Camera 1
-                        </button>
-                        <button id="camera1-stop-btn" class="btn btn-danger btn-lg" onclick="controlCamera(1, 'stop')">
-                            ■ Stop Camera 1
-                        </button>
-                        <button id="camera2-start-btn" class="btn btn-success btn-lg" onclick="controlCamera(2, 'start')">
-                            ▶ Start Camera 2
-                        </button>
-                        <button id="camera2-stop-btn" class="btn btn-danger btn-lg" onclick="controlCamera(2, 'stop')">
-                            ■ Stop Camera 2
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Camera Section -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Add Camera</h5>
-                </div>
-                <div class="card-body">
-                    <form id="add-camera-form" class="row g-3 align-items-end">
-                        <div class="col-md-3">
-                            <label for="new-camera-name" class="form-label">Camera Name</label>
-                            <input type="text" class="form-control" id="new-camera-name" placeholder="e.g. Parking Cam" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="new-camera-url" class="form-label">Camera RTSP / URL</label>
-                            <input type="text" class="form-control" id="new-camera-url" placeholder="rtsp://... or http://..." required>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="new-camera-type" class="form-label">Type</label>
-                            <select id="new-camera-type" class="form-select">
-                                <option value="RTSP">RTSP</option>
-                                <option value="IP">IP</option>
-                                <option value="USB">USB</option>
-                                <option value="Webcam">Webcam</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-primary w-100">Add Camera</button>
-                        </div>
-                    </form>
-                    <div class="mt-4">
-                        <h6>Camera List</h6>
-                        <div id="camera-list" class="row gy-3">
-                            <div class="col-md-4">
-                                <div class="card border-secondary">
-                                    <div class="card-body">
-                                        <h6 class="card-title">Camera 1</h6>
-                                        <p class="card-text mb-1">Type: Webcam</p>
-                                        <p class="card-text text-success mb-0">Status: Active</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card border-secondary">
-                                    <div class="card-body">
-                                        <h6 class="card-title">Camera 2</h6>
-                                        <p class="card-text mb-1">Type: USB</p>
-                                        <p class="card-text text-success mb-0">Status: Active</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Additional Stats -->
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">Resolution</h6>
-                    <p class="mb-0"><strong>{{ width }} x {{ height }}</strong></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">FPS</h6>
-                    <p class="mb-0"><strong>{{ fps }}</strong></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">Visitors Today</h6>
-                    <p class="mb-0"><strong id="visitor-count">{{ visitor_count }}</strong></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card">
-                <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">Total Events</h6>
-                    <p class="mb-0"><strong id="event-count">0</strong></p>
-                </div>
-            </div>
-        </div>
-    </div>
-<div class="card mt-4">
-
-    <div class="card-header">
-        Today's Attendance
-    </div>
-
-    <div class="card-body">
-
-        <table class="table">
-
-            <tr>
-
-                <th>Name</th>
-                <th>Date</th>
-                <th>Entry Time</th>
-                <th>Status</th>
-
-            </tr>
-
-            {% for row in attendance %}
-
-            <tr>
-
-                <td>{{ row.employee_name }}</td>
-
-                <td>{{ row.date }}</td>
-
-                <td>{{ row.entry_time }}</td>
-
-                <td>{{ row.status }}</td>
-
-            </tr>
-
-            {% endfor %}
-
-        </table>
-
-    </div>
-
-</div>
-    <!-- Recent Snapshots -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Recent Snapshots</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row" id="snapshots-container">
-                        {% for snap in snapshots %}
-                        <div class="col-md-3 mb-3">
-                            <img src="{{ snap.image.url }}" class="snapshot-img" alt="Snapshot">
-                            <small class="text-muted d-block mt-2">{{ snap.created_at }}</small>
-                            <small class="text-muted d-block mt-2">  📷 {{ snap.camera_name }}</small>
-
-                        </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <p class="text-danger text-center">No snapshots found</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Visitor History -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Visitor History</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Visitor Name</th>
-                                    <th>Snapshot</th>
-                                    <th>Detection Time</th>
-                                    <th>Camera</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for visitor in visitors %}
-                                <tr class="visitor-row">
-                                    <td><strong>{{ visitor.visitor_name }}</strong></td>
-                                    <td>
-                                        <img src="{{ visitor.Snapshot.url }}" width="80" height="80" class="rounded" style="object-fit: cover;">
-                                    </td>
-                                    <td>{{ visitor.detection_time }}</td>
-                                    <td>{{ visitor.camera_name }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr class="visitor-row">
-                                    <td colspan="3" class="text-center text-muted py-4">No visitor history available</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <div>
-                            <button id="visitor-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
-                            <button id="visitor-next" class="btn btn-sm btn-outline-secondary">Next</button>
-                        </div>
-                        <small id="visitor-page-info" class="text-muted">&nbsp;</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Camera Logs -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Camera Activity Logs</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Event</th>
-                                    <th>Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for log in logs %}
-                                <tr class="log-row">
-                                    <td>{{ log.event }}</td>
-                                    <td>{{ log.created_at }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr class="log-row">
-                                    <td colspan="2" class="text-center text-muted py-4">No activity logs available</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <div>
-                            <button id="logs-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
-                            <button id="logs-next" class="btn btn-sm btn-outline-secondary">Next</button>
-                        </div>
-                        <small id="logs-page-info" class="text-muted">&nbsp;</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="card mt-4">
-
-    <div class="card mt-4">
-
-    <div class="card-header">
-        Alert History
-    </div>
-
-    <div class="card-body">
-
-        <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Alert Type</th>
-                            <th>Message</th>
-                            <th>Time</th>
-                        </tr>
-                    </thead>
-                    <tbody id="alert-history-body">
-                        {% for alert in alerts %}
-                        <tr class="alert-row">
-                            <td>{{ alert.alert_type }}</td>
-                            <td>{{ alert.message }}</td>
-                            <td>{{ alert.created_at }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-        </table>
-
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <div>
-                        <button id="alerts-prev" class="btn btn-sm btn-outline-secondary" disabled>Prev</button>
-                        <button id="alerts-next" class="btn btn-sm btn-outline-secondary">Next</button>
-                    </div>
-                    <small id="alerts-page-info" class="text-muted">&nbsp;</small>
-                </div>
-
-</div>
-
-</div>
-    </div>
-
-
-<a href="{% url 'download_report' %}"
-   class="btn btn-success">
-
-    Download Report
-
-</a>
-</div>
-</div>
-
-
-
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{% static 'js/dashboard.js' %}"></script>
-<script src="{% static 'js/dashboard-ui.js' %}"></script>
-<script src="{% static 'js/custom-dashboard.js' %}"></script>
-<script>
-    // Clock Update
-    function updateClock() {
-        const clockElement = document.getElementById('clock');
-        if (clockElement) {
-            clockElement.innerHTML = new Date().toLocaleString();
-        }
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-    // Snapshot Button
-    // const snapshotBtn = document.getElementById('snapshot-btn');
-    // if (snapshotBtn) {
-    //     snapshotBtn.addEventListener('click', function() {
-    //         fetch('/snapshot/', {
-    //             method: 'GET'
-    //         })
-    //         .then(response => response.json())
-    //         .then(data => {
-    //             alert(data.message || 'Snapshot captured successfully!');
-    //         })
-    //         .catch(error => console.error('Error:', error));
-    //     });
-    // }
-
-    // Face Count Update
-    function updateFaceCount() {
-        fetch('/face_count/')
-            .then(response => response.json())
-            .then(data => {
-                const faceCountElement = document.getElementById('face-count');
-                if (faceCountElement) {
-                    faceCountElement.innerHTML = data.count || 0;
-                }
-            })
-            .catch(error => console.error('Error fetching face count:', error));
-    }
-    setInterval(updateFaceCount, 2000);
-    updateFaceCount();
-
-    // People Count Update
-    function updatePeopleCount() {
-        fetch('/people_count/')
-            .then(response => response.json())
-            .then(data => {
-                const peopleCountElement = document.getElementById('people-count');
-                if (peopleCountElement) {
-                    peopleCountElement.innerHTML = data.count || 0;
-                }
-            })
-            .catch(error => console.error('Error fetching people count:', error));
-    }
-    setInterval(updatePeopleCount, 2000);
-    updatePeopleCount();
-
-    // Alert History Refresh
-    function updateAlerts() {
-        fetch('/alerts/')
-            .then(response => response.json())
-            .then(data => {
-                const body = document.getElementById('alert-history-body');
-                if (!body) return;
-                body.innerHTML = '';
-                data.alerts.forEach(alert => {
-                    const row = document.createElement('tr');
-                    row.className = 'alert-row';
-                    row.innerHTML = `
-                        <td>${alert.alert_type}</td>
-                        <td>${alert.message}</td>
-                        <td>${alert.created_at}</td>
-                    `;
-                    body.appendChild(row);
-                });
-                if (typeof alertsPagination !== 'undefined' && alertsPagination !== null) alertsPagination.render();
-            })
-            .catch(error => console.error('Error updating alerts:', error));
-    }
-    setInterval(updateAlerts, 5000);
-    updateAlerts();
-
-    // Camera Status Check
-    function updateCameraStatus() {
-        fetch('/camera_status/', { method: 'GET' })
-            .then(response => response.json())
-            .then(data => {
-                const camera1Status = document.getElementById('camera1-status');
-                const camera2Status = document.getElementById('camera2-status');
-
-                if (camera1Status) {
-                    const camera1State = data.camera1 === 'Online' ? 'Online' : 'Offline';
-                    camera1Status.textContent = camera1State;
-                    camera1Status.className = 'status-badge ' + (camera1State === 'Online' ? 'status-online' : 'status-offline');
-                }
-                if (camera2Status) {
-                    const camera2State = data.camera2 === 'Online' ? 'Online' : 'Offline';
-                    camera2Status.textContent = camera2State;
-                    camera2Status.className = 'status-badge ' + (camera2State === 'Online' ? 'status-online' : 'status-offline');
-                }
-                const camera1Time = document.getElementById('camera1-time');
-                const camera2Time = document.getElementById('camera2-time');
-                if (camera1Time) {
-                    camera1Time.textContent = data.camera1 === 'Offline' ? `Offline since ${data.camera1_time}` : '';
-                }
-                if (camera2Time) {
-                    camera2Time.textContent = data.camera2 === 'Offline' ? `Offline since ${data.camera2_time}` : '';
-                }
-            })
-            .catch(error => console.log('Camera status check - continuing...'));
-    }
-    setInterval(updateCameraStatus, 5000);
-    updateCameraStatus();
-    
-    
-</script>
-
-<script>
-var visitorsPagination = null;
-var logsPagination = null;
-var alertsPagination = null;
-document.addEventListener('DOMContentLoaded', function(){
-    function setupPagination(prefix, rowClass, pageSize){
-        pageSize = pageSize || 5;
-        const prevBtn = document.getElementById(prefix + '-prev');
-        const nextBtn = document.getElementById(prefix + '-next');
-        const pageInfo = document.getElementById(prefix + '-page-info');
-        let page = 0;
-        function render(){
-            const rows = Array.from(document.getElementsByClassName(rowClass));
-            const total = rows.length;
-            const pages = total === 0 ? 1 : Math.max(1, Math.ceil(total / pageSize));
-            if(page >= pages) page = pages - 1;
-            rows.forEach((r, i) => {
-                r.style.display = (i >= page * pageSize && i < (page + 1) * pageSize) ? '' : 'none';
-            });
-            if(pageInfo) pageInfo.textContent = total === 0 ? 'No records' : `Page ${page+1} of ${pages}`;
-            if(prevBtn) prevBtn.disabled = page === 0 || total === 0;
-            if(nextBtn) nextBtn.disabled = (page + 1) * pageSize >= total || total === 0;
-        }
-        if(prevBtn) prevBtn.addEventListener('click', function(){ if(page > 0){ page--; render(); }});
-        if(nextBtn) nextBtn.addEventListener('click', function(){ const rows = document.getElementsByClassName(rowClass); if((page+1)*pageSize < rows.length){ page++; render(); }});
-        render();
-        return { render };
-    }
-
-    visitorsPagination = setupPagination('visitor', 'visitor-row', 5);
-    logsPagination = setupPagination('logs', 'log-row', 5);
-    alertsPagination = setupPagination('alerts', 'alert-row', 5);
-});
-</script>
-<script>
-
-function captureSnapshot() {
-
-    let camera = prompt(
-        "Select Camera:\n\n1 = Laptop Camera\n2 = USB Camera"
-    );
-
-    if (
-        camera !== "1" &&
-        camera !== "2"
-    ) {
-
-        alert("Invalid Camera Selection");
-        return;
-    }
-
-    fetch(
-        `/snapshot/?camera=${camera}`
-    )
-
-    .then(response => response.json())
-
-    .then(data => {
-
-        alert(data.message);
-
-        location.reload();
-
-    });
-
+{% block extra_css %}
+<style>
+/* New Dashboard Specific Styles */
+.clock-box {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+.stat-card-sm {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+.stat-card-sm .stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    font-size: 20px;
+    margin-bottom: 8px;
+}
+.stat-card-sm .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+}
+.stat-card-sm .stat-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.trend-up { color: #10B981; font-size: 11px; font-weight: 600; }
+.trend-down { color: #EF4444; font-size: 11px; font-weight: 600; }
+.trend-neutral { color: var(--text-muted); font-size: 11px; }
+.trend-text { color: var(--text-muted); font-size: 11px; }
+
+.camera-grid-tight {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.camera-feed-tight {
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--card-border);
+}
+.camera-stream-tight {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+}
+.camera-header-tight {
+    position: absolute;
+    top: 8px; left: 8px; right: 8px;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+.camera-footer-tight {
+    position: absolute;
+    bottom: 8px; left: 8px; right: 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+.cam-btn-tight {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: white;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+}
+.cam-btn-tight.active { background: #ef4444; }
+
+.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-function controlCamera(camera, action) {
-    fetch(`/camera_control/?camera=${camera}&action=${action}`)
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message || 'Camera action complete');
-            window.location.reload();
+/* Donut Chart Center Text */
+.chart-container {
+    position: relative;
+    height: 200px;
+}
+.chart-center-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.chart-center-val { font-size: 24px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.chart-center-lbl { font-size: 11px; color: var(--text-muted); }
+
+/* Progress Circle */
+.progress-circle {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent) 62%, var(--card-border) 0);
+    display: flex; align-items: center; justify-content: center;
+}
+.progress-inner {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text-primary);
+}
+
+.uf-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.uf-img { width: 100%; height: 120px; object-fit: cover; }
+.uf-body { padding: 10px; font-size: 11px; }
+
+/* Toast notifications */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+.lm-toast {
+    background: #1F2937;
+    border: 1px solid #374151;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+.lm-toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+.lm-toast-success { border-left: 4px solid var(--accent-green, #10B981); }
+.lm-toast-danger { border-left: 4px solid var(--accent-red, #EF4444); }
+.lm-toast-info { border-left: 4px solid var(--accent, #2563EB); }
+.lm-toast-warning { border-left: 4px solid var(--accent-amber, #F59E0B); }
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <!-- ── STATS ROW 1 (6 Cards) ── -->
+    <div class="row g-3 mb-3">
+        <!-- Total Cameras -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent);">
+                <div class="stat-icon"><i class="bi bi-camera-video-fill"></i></div>
+                <div class="stat-value">{{ cameras.count }}</div>
+                <div class="stat-label mb-2">Total Cameras</div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="trend-up" id="online-count">Online {{ online }}</span>
+                    <span class="trend-down" id="offline-count">Offline {{ offline }}</span>
+                </div>
+                <div class="sparkline" style="bottom:-5px; right: 0;">
+                    <svg viewBox="0 0 80 28"><polyline points="0,20 16,14 32,18 48,8 64,12 80,6" fill="none" stroke="rgba(59,130,246,.3)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+        <!-- Today's Entries -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent-green);">
+                <div class="stat-icon"><i class="bi bi-box-arrow-in-right"></i></div>
+                <div class="stat-value" id="entries-count">{{ entries_count }}</div>
+                <div class="stat-label mb-2">Today's Entries</div>
+                <div class="{% if entries_change >= 0 %}trend-up{% else %}trend-down{% endif %}"><i class="bi {% if entries_change >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i> {{ entries_change|default:"0"|floatformat:"1" }}% <span class="trend-text">from yesterday</span></div>
+                <div class="sparkline">
+                    <svg viewBox="0 0 80 28"><polyline points="0,22 16,14 32,18 48,10 64,12 80,6" fill="none" stroke="rgba(16,185,129,.5)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+        <!-- Today's Exits -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent-red);">
+                <div class="stat-icon"><i class="bi bi-box-arrow-right"></i></div>
+                <div class="stat-value" id="exits-count">{{ exits_count }}</div>
+                <div class="stat-label mb-2">Today's Exits</div>
+                <div class="{% if exits_change >= 0 %}trend-up{% else %}trend-down{% endif %}"><i class="bi {% if exits_change >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i> {{ exits_change|default:"0"|floatformat:"1" }}% <span class="trend-text">from yesterday</span></div>
+                <div class="sparkline">
+                    <svg viewBox="0 0 80 28"><polyline points="0,18 16,12 32,16 48,6 64,10 80,5" fill="none" stroke="rgba(239,68,68,.5)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+        <!-- Employees Present -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent-2);">
+                <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+                <div class="stat-value" id="emp-present">{{ emp_present }}</div>
+                <div class="stat-label mb-2">Employees Present</div>
+                <div class="trend-neutral">On Site</div>
+                <div class="sparkline">
+                    <svg viewBox="0 0 80 28"><polyline points="0,24 16,18 32,14 48,10 64,6 80,3" fill="none" stroke="rgba(139,92,246,.5)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+        <!-- Unknown Faces -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent-amber);">
+                <div class="stat-icon"><i class="bi bi-person-bounding-box"></i></div>
+                <div class="stat-value">{{ unknown_count }}</div>
+                <div class="stat-label mb-2">Unknown Faces</div>
+                <div class="{% if unknown_change >= 0 %}trend-down{% else %}trend-up{% endif %}"><i class="bi {% if unknown_change >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i> {{ unknown_change|default:"0"|floatformat:"1" }}% <span class="trend-text">from yesterday</span></div>
+                <div class="sparkline">
+                    <svg viewBox="0 0 80 28"><polyline points="0,22 16,16 32,10 48,14 64,7 80,4" fill="none" stroke="rgba(245,158,11,.5)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+        <!-- Visitors Today -->
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="stat-card-sm" style="--stat-color: var(--accent-cyan);">
+                <div class="stat-icon"><i class="bi bi-person-badge"></i></div>
+                <div class="stat-value">{{ visitor_count }}</div>
+                <div class="stat-label mb-2">Visitors Today</div>
+                <div class="{% if visitor_change >= 0 %}trend-up{% else %}trend-down{% endif %}"><i class="bi {% if visitor_change >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i> {{ visitor_change|default:"0"|floatformat:"1" }}% <span class="trend-text">from yesterday</span></div>
+                <div class="sparkline">
+                    <svg viewBox="0 0 80 28"><polyline points="0,18 16,12 32,16 48,6 64,10 80,5" fill="none" stroke="rgba(6,182,212,.5)" stroke-width="2"/></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── STATS ROW 2 (5 Cards) ── -->
+    <div class="row g-3 mb-4">
+        <!-- AI Events -->
+        <div class="col">
+            <div class="stat-card-sm d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);color:var(--accent);display:grid;place-items:center;"><i class="bi bi-cpu"></i></div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">AI Events</div>
+                        <div style="font-size:20px;font-weight:700;">{{ ai_events_count }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Today</span></div>
+                    </div>
+                </div>
+                <div style="width: 60px;"><svg viewBox="0 0 60 20"><polyline points="0,15 15,5 30,10 45,2 60,8" fill="none" stroke="#2563EB" stroke-width="1.5"/></svg></div>
+            </div>
+        </div>
+        <!-- Recent Alerts -->
+        <div class="col">
+            <div class="stat-card-sm d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.1);color:var(--accent-red);display:grid;place-items:center;"><i class="bi bi-bell-fill"></i></div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">Recent Alerts</div>
+                        <div style="font-size:20px;font-weight:700;">{{ recent_alerts_count }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Today</span></div>
+                    </div>
+                </div>
+                <div style="width: 60px;"><svg viewBox="0 0 60 20"><polyline points="0,10 15,12 30,5 45,15 60,2" fill="none" stroke="#EF4444" stroke-width="1.5"/></svg></div>
+            </div>
+        </div>
+        <!-- Live Notifications -->
+        <div class="col">
+            <div class="stat-card-sm d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,0.1);color:var(--accent-amber);display:grid;place-items:center;"><i class="bi bi-app-indicator"></i></div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">Live Notifications</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--accent-amber);">{{ recent_alerts_count }} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Unread</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Recording Status -->
+        <div class="col">
+            <div class="stat-card-sm d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.1);color:var(--accent-red);display:grid;place-items:center;"><i class="bi bi-record-circle"></i></div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">Recording Status</div>
+                        <div style="font-size:20px;font-weight:700;">{{ online }} / {{ cameras.count }}</div>
+                    </div>
+                </div>
+                <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Recording <span style="color:#ef4444;"><i class="bi bi-circle-fill"></i> REC</span></div>
+            </div>
+        </div>
+        <!-- Storage Usage -->
+        <div class="col">
+            <div class="stat-card-sm d-flex align-items-center justify-content-between p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);color:var(--accent);display:grid;place-items:center;"><i class="bi bi-hdd"></i></div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">Storage Usage</div>
+                        <div style="font-size:11px;color:var(--text-muted);">{{ storage_used }} / {{ storage_total }} Used</div>
+                    </div>
+                </div>
+                <div class="progress-circle" style="background: conic-gradient(var(--accent) {{ storage_percent|default:'0' }}%, var(--card-border) 0);">
+                    <div class="progress-inner">{{ storage_percent|default:"0" }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MIDDLE ROW: Live Cameras + Detection Analytics ── -->
+    <div class="row g-4 mb-4">
+        <!-- Live Cameras Grid -->
+        <div class="col-xl-8">
+            <div class="card h-100 p-3" style="background: transparent; border: 1px solid var(--card-border);">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="section-title mb-0"><span class="online-dot"></span> Live Cameras</div>
+                    <a href="{% url 'live_monitoring' %}" class="btn btn-sm btn-outline-secondary" style="font-size: 12px; border-radius: 8px;">View All</a>
+                </div>
+                
+                <div class="camera-grid-tight mb-3">
+                    {% for camera in cameras|slice:":6" %}
+                    <div class="camera-feed-tight" id="cam-card-{{ camera.id }}">
+                        <div class="camera-header-tight">
+                            <span>{{ camera.name }}</span>
+                            <span class="badge bg-success" style="font-size:9px;" id="cam-badge-{{ camera.camera_no }}">Live</span>
+                        </div>
+                        <img src="{% url 'video_feed' camera.id %}" id="cam-stream-{{ camera.camera_no }}" onerror="this.src='https://via.placeholder.com/400x300/1E293B/ffffff?text=Camera+{{ camera.name }}'" class="camera-stream-tight">
+                        <div class="camera-footer-tight">
+                            <div class="d-flex gap-1">
+                                <button class="cam-btn-tight" onclick="captureBackendSnapshot('{{ camera.id }}', '{{ camera.name|escapejs }}')"><i class="bi bi-camera"></i></button>
+                                <button class="cam-btn-tight" onclick="toggleMute(this)"><i class="bi bi-volume-up"></i></button>
+                                <button class="cam-btn-tight" onclick="toggleFeedFullscreen('cam-stream-{{ camera.camera_no }}')"><i class="bi bi-arrows-fullscreen"></i></button>
+                            </div>
+                            <button class="cam-btn-tight {% if camera.is_online %}active{% endif %}" onclick="toggleCameraControl('{{ camera.id }}', this)"><i class="bi bi-record-fill"></i></button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted p-4 w-100" style="grid-column: 1 / -1;">No cameras added yet.</div>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'live_monitoring' %}" class="btn w-100 py-2 d-flex align-items-center justify-content-center gap-2" style="background: rgba(37,99,235,0.1); border: 1px solid var(--accent); color: var(--accent); border-radius: 10px;">
+                    <i class="bi bi-display"></i> Open Live Monitoring
+                </a>
+            </div>
+        </div>
+
+        <!-- Detection Analytics -->
+        <div class="col-xl-4">
+            <div class="card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="section-title mb-0"><i class="bi bi-person-bounding-box text-primary"></i> AI Detection Overview</div>
+                        <select class="form-select form-select-sm" style="width: auto; background: var(--input-bg); border-color: var(--input-border); color: var(--text-primary);">
+                            <option>Today</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="chart-container" style="width: 160px; height: 160px;">
+                            <canvas id="detectionDonut"></canvas>
+                            <div class="chart-center-text">
+                                <div class="chart-center-val">{{ known_count|add:unknown_count }}</div>
+                                <div class="chart-center-lbl">Total Detections</div>
+                            </div>
+                        </div>
+                        <div class="ms-4 flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 11px;">
+                                <div style="width:10px;height:10px;background:#10B981;border-radius:2px;"></div>
+                                <div>Known Faces</div><div class="fw-bold ms-auto">{{ known_count }}</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mb-2" style="font-size: 11px;">
+                                <div style="width:10px;height:10px;background:#EF4444;border-radius:2px;"></div>
+                                <div>Unknown Faces</div><div class="fw-bold ms-auto">{{ unknown_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div style="font-size:12px; font-weight: 600; margin-bottom: 10px;">Detections Trend <span class="text-muted fw-normal">(Last 7 Days)</span></div>
+                        <div style="height: 120px; width: 100%;">
+                            <canvas id="detectionTrend"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── BOTTOM ROW (Masonry/Grid) ── -->
+    <div class="row g-4">
+        
+        <!-- Recent Alerts -->
+        <div class="col-xl-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-bell text-primary"></i> Recent Alerts</div>
+                    <a href="{% url 'alerts_page' %}" class="btn btn-sm btn-outline-secondary py-1" style="font-size: 11px; border-radius: 6px;">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for alert in alerts|slice:":5" %}
+                    <div class="d-flex align-items-start mb-3">
+                        <div class="p-2 rounded me-3" style="background: rgba({% if alert.alert_type == 'Intrusion' %}239,68,68{% elif alert.alert_type == 'Unknown Face' %}245,158,11{% else %}59,130,246{% endif %},0.1); color: {% if alert.alert_type == 'Intrusion' %}#EF4444{% elif alert.alert_type == 'Unknown Face' %}#F59E0B{% else %}#3B82F6{% endif %};">
+                            <i class="bi {% if alert.alert_type == 'Intrusion' %}bi-exclamation-triangle{% elif alert.alert_type == 'Unknown Face' %}bi-person-fill-slash{% else %}bi-bell{% endif %}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <div style="font-size:13px; font-weight:600;">{{ alert.alert_type }}</div>
+                                <div style="font-size:11px; color:var(--text-muted);">{{ alert.created_at|date:"h:i A" }}</div>
+                            </div>
+                            <div style="font-size:12px; color:var(--text-secondary);">{{ alert.message }}</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted p-3">No recent alerts.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Summary -->
+        <div class="col-xl-3">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-person-check text-success"></i> Attendance Summary</div>
+                    <a href="{% url 'attendance' %}" class="btn btn-sm btn-outline-secondary py-1" style="font-size: 11px; border-radius: 6px;">View All</a>
+                </div>
+                <div class="card-body text-center pt-2">
+                    <div class="chart-container mx-auto" style="width: 140px; height: 140px; margin-bottom: 20px;">
+                        <canvas id="attendanceDonut"></canvas>
+                        <div class="chart-center-text">
+                            <div class="chart-center-val" id="attendance-percent-val">{{ attendance_present_percentage }}%</div>
+                            <div class="chart-center-lbl">Present</div>
+                        </div>
+                    </div>
+                    
+                    <a href="{% url 'attendance' %}" class="d-flex justify-content-between mb-2 pb-2 border-bottom text-decoration-none" style="border-color: var(--card-border) !important;">
+                        <div style="font-size:12px; color:var(--text-secondary);">Total Employees</div>
+                        <div style="font-size:12px; font-weight:700; color:var(--text-primary);">{{ total_employees }} <i class="bi bi-chevron-right text-muted" style="font-size:10px;"></i></div>
+                    </a>
+                    <a href="{% url 'attendance' %}" class="d-flex justify-content-between mb-2 pb-2 border-bottom text-decoration-none" style="border-color: var(--card-border) !important;">
+                        <div style="font-size:12px; color:#10B981;">Present</div>
+                        <div style="font-size:12px; font-weight:700; color:#10B981;">{{ emp_present }} <i class="bi bi-chevron-right text-muted" style="font-size:10px;"></i></div>
+                    </a>
+                    <a href="{% url 'attendance' %}" class="d-flex justify-content-between mb-2 pb-2 border-bottom text-decoration-none" style="border-color: var(--card-border) !important;">
+                        <div style="font-size:12px; color:#EF4444;">Absent</div>
+                        <div style="font-size:12px; font-weight:700; color:#EF4444;">{{ emp_absent }} <i class="bi bi-chevron-right text-muted" style="font-size:10px;"></i></div>
+                    </a>
+                    <a href="{% url 'attendance' %}" class="d-flex justify-content-between mb-3 text-decoration-none">
+                        <div style="font-size:12px; color:#F59E0B;">Leave</div>
+                        <div style="font-size:12px; font-weight:700; color:#F59E0B;">{{ emp_leave }}</div>
+                    </a>
+
+                    <div class="d-flex gap-2">
+                        <div class="flex-grow-1 p-2 rounded" style="background: var(--table-stripe); border: 1px solid var(--card-border);">
+                            <div style="font-size:11px; color:var(--text-secondary);">Late Entries</div>
+                            <div style="font-size:16px; font-weight:700;">{{ late_entries|default:"0" }}</div>
+                        </div>
+                        <div class="flex-grow-1 p-2 rounded" style="background: var(--table-stripe); border: 1px solid var(--card-border);">
+                            <div style="font-size:11px; color:var(--text-secondary);">Early Exits</div>
+                            <div style="font-size:16px; font-weight:700;">{{ early_exits|default:"0" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unknown Faces -->
+        <div class="col-xl-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-person-bounding-box text-warning"></i> Unknown Faces</div>
+                    <a href="{% url 'visitors' %}" class="btn btn-sm btn-outline-secondary py-1" style="font-size: 11px; border-radius: 6px;">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for unknown_face in unknown_faces_list %}
+                        <div class="col-6 col-sm-3">
+                            <div class="uf-card">
+                                <img src="{% if unknown_face.Snapshot %}{{ unknown_face.Snapshot.url }}{% else %}{% static 'images/placeholder_face.jpg' %}{% endif %}" onerror="this.src='https://via.placeholder.com/150/1E293B/ffffff?text=Face'" class="uf-img">
+                                <div class="uf-body">
+                                    <div class="fw-bold mb-1">Unknown #{{ unknown_face.id|stringformat:"03d" }}</div>
+                                    <div class="text-muted" style="font-size:10px;">{{ unknown_face.detection_time|date:"h:i A" }}<br>{{ unknown_face.camera_name }}<br>N/A</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted p-3 col-12">No unknown faces detected today.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Health Table -->
+        <div class="col-xl-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-camera text-info"></i> Camera Health</div>
+                    <a href="{% url 'cameras' %}" class="btn btn-sm btn-outline-secondary py-1" style="font-size: 11px; border-radius: 6px;">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-hover mb-0" style="font-size: 12px;">
+                            <thead style="border-bottom: 1px solid var(--card-border);">
+                                <tr>
+                                    <th class="text-muted fw-normal px-4 py-3">Camera Name</th>
+                                    <th class="text-muted fw-normal py-3">Status</th>
+                                    <th class="text-muted fw-normal py-3">FPS</th>
+                                    <th class="text-muted fw-normal py-3">Bitrate</th>
+                                    <th class="text-muted fw-normal px-4 py-3 text-end">Uptime</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <tbody>
+                                {% for camera in cameras %}
+                                <tr style="border-bottom: 1px solid var(--card-border);">
+                                    <td class="px-4 py-3">{{ camera.name }}</td>
+                                    <td class="py-3">
+                                        {% if camera.is_online %}
+                                            <span class="text-success">Online</span>
+                                        {% else %}
+                                            <span class="text-danger">Offline</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 text-muted">{% if camera.is_online %}{{ camera.live_fps|default:"25" }}{% else %}0{% endif %}</td>
+                                    <td class="py-3 text-muted">{% if camera.is_online %}{{ camera.bitrate_kbps|default:"2048" }} kbps{% else %}0 kbps{% endif %}</td>
+                                    <td class="px-4 py-3 text-muted text-end">{% if camera.is_online %}12h 45m{% else %}-{% endif %}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">No cameras configured.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Events Summary -->
+        <div class="col-xl-4">
+            <div class="card h-100">
+                <div class="card-header border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-activity text-primary"></i> Events Summary (Today)</div>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <div class="row g-3 flex-grow-1 align-items-center text-center">
+                        <div class="col-3">
+                            <div class="mb-2" style="font-size: 24px; color: var(--accent-2);"><i class="bi bi-person-bounding-box"></i></div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Face Detections</div>
+                            <div class="fw-bold" style="font-size: 18px;">{{ face_detections_count }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="mb-2" style="font-size: 24px; color: var(--accent-green);"><i class="bi bi-arrows-move"></i></div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Motion Events</div>
+                            <div class="fw-bold" style="font-size: 18px;">{{ motion_events_count }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="mb-2" style="font-size: 24px; color: var(--accent-amber);"><i class="bi bi-people"></i></div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Crowd Events</div>
+                            <div class="fw-bold" style="font-size: 18px;">{{ crowd_events_count }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="mb-2" style="font-size: 24px; color: var(--accent);"><i class="bi bi-clock-history"></i></div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">Other Events</div>
+                            <div class="fw-bold" style="font-size: 18px;">{{ other_events_count }}</div>
+                        </div>
+                    </div>
+                    <a href="{% url 'ai_events' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3" style="border-radius: 8px; border: 1px solid var(--card-border); color: var(--text-secondary); background: transparent;">View All Events</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Storage Overview -->
+        <div class="col-xl-3">
+            <div class="card h-100">
+                <div class="card-header border-0 pt-4 pb-0 bg-transparent">
+                    <div class="section-title mb-0"><i class="bi bi-hdd text-info"></i> Storage Overview</div>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="chart-container" style="width: 120px; height: 120px; margin-right: 20px;">
+                            <canvas id="storageDonut"></canvas>
+                            <div class="chart-center-text">
+                                <div class="chart-center-val" style="font-size: 20px;" id="storage-percent-val">{{ storage_percent }}%</div>
+                                <div class="chart-center-lbl">Used</div>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between mb-3 border-bottom pb-2" style="border-color: var(--card-border) !important;">
+                                <div style="font-size:11px; color:var(--text-secondary);">Total Capacity</div>
+                                <div style="font-size:12px; font-weight:700;">{{ storage_total }}</div>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <div style="font-size:11px; color:var(--text-secondary);">Used</div>
+                                <div style="font-size:12px; font-weight:700;">{{ storage_used }}</div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <div style="font-size:11px; color:var(--text-secondary);">Free</div>
+                                <div style="font-size:12px; font-weight:700;">{{ storage_free }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-3 pt-3 border-top" style="border-color: var(--card-border) !important; font-size: 11px; color: var(--text-muted);">
+                        Storage Details
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include Chart.js if not already in base.html -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Mock data and Chart.js initialization
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Set Header Date/Time
+    function updateHeaderTime() {
+        const now = new Date();
+        const optionsDate = { month: 'short', day: 'numeric', year: 'numeric' };
+        document.getElementById('header-date').innerText = now.toLocaleDateString('en-US', optionsDate);
+        document.getElementById('header-time').innerText = now.toLocaleTimeString('en-US', { hour12: true });
+    }
+    setInterval(updateHeaderTime, 1000);
+    updateHeaderTime();
+
+    // Chart Options Default
+    Chart.defaults.color = '#9CA3AF';
+    Chart.defaults.font.family = 'Inter';
+
+    // 1. Detection Donut
+    const ctxDetection = document.getElementById('detectionDonut');
+    if(ctxDetection) {
+        new Chart(ctxDetection, {
+            type: 'doughnut',
+            data: {
+                labels: ['Known', 'Unknown'],
+                datasets: [{
+                    data: [{{ known_count|default:"0" }}, {{ unknown_count|default:"0" }}],
+                    backgroundColor: ['#10B981', '#EF4444'],
+                    borderWidth: 0,
+                    cutout: '80%',
+                    borderRadius: 2
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    // 2. Detection Trend (Line)
+    const ctxTrend = document.getElementById('detectionTrend');
+    if(ctxTrend) {
+        new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: {{ trend_labels|safe|default:"['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" }},
+                datasets: [{
+                    label: 'Detections',
+                    data: {{ trend_data|safe|default:"[0, 0, 0, 0, 0, 0, 0]" }},
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointBackgroundColor: '#3B82F6',
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, min: 0, max: 120, ticks: { stepSize: 20, font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    // 3. Attendance Donut
+    const ctxAtt = document.getElementById('attendanceDonut');
+    if(ctxAtt) {
+        new Chart(ctxAtt, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent', 'Leave'],
+                datasets: [{
+                    data: [{{ emp_present|default:"0" }}, {{ emp_absent|default:"0" }}, {{ emp_leave|default:"0" }}],
+                    backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+                    borderWidth: 0,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    // 4. Storage Donut
+    const ctxStore = document.getElementById('storageDonut');
+    if(ctxStore) {
+        new Chart(ctxStore, {
+            type: 'doughnut',
+            data: {
+                labels: ['Used', 'Free'],
+                datasets: [{
+                    data: [{{ storage_percent|default:"0" }}, 100 - {{ storage_percent|default:"0" }}],
+                    backgroundColor: ['#3B82F6', '#1E293B'],
+                    borderWidth: 0,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: false
+            }
+        });
+    }
+});
+
+// Fullscreen specific camera feed
+function toggleFeedFullscreen(cardId) {
+    const feedCard = document.getElementById(cardId);
+    if (feedCard) {
+        if (!document.fullscreenElement) {
+            if (feedCard.requestFullscreen) {
+                feedCard.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            }
+        } else {
+            document.exitFullscreen();
+        }
+    }
+}
+
+// Poll camera status
+function pollCameraStatus() {
+    fetch('/camera_status/')
+        .then(r => r.json())
+        .then(d => {
+            const buttons = document.querySelectorAll('.camera-feed-tight');
+            let onlineCnt = 0;
+            let offlineCnt = 0;
+            
+            buttons.forEach(card => {
+                const camId = card.id.replace('cam-card-', '');
+                const key = `camera_${camId}`;
+                const state = d[key]; // "Online" | "Offline"
+                
+                if (state) {
+                    const online = state === 'Online';
+                    if (online) { onlineCnt++; } else { offlineCnt++; }
+                    
+                    // update badge
+                    const badge = card.querySelector('.badge');
+                    if (badge) {
+                        if (online) {
+                            badge.classList.remove('bg-danger');
+                            badge.classList.add('bg-success');
+                            badge.textContent = 'Live';
+                        } else {
+                            badge.classList.remove('bg-success');
+                            badge.classList.add('bg-danger');
+                            badge.textContent = 'Offline';
+                        }
+                    }
+                }
+            });
+            
+            const oc = document.getElementById('online-count');
+            if(oc) oc.textContent = `Online ${onlineCnt}`;
+            const ofc = document.getElementById('offline-count');
+            if(ofc) ofc.textContent = `Offline ${offlineCnt}`;
         })
-        .catch(() => {
-            alert('Unable to control camera at this time');
+        .catch(() => {});
+}
+
+// Button actions
+function captureBackendSnapshot(camId, camName) {
+    if (!camId) return;
+    showToast(`Capturing snapshot for ${camName}...`, "info");
+    fetch(`/snapshot/?camera=${camId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(`Snapshot saved for ${camName}! Check Snapshots page.`, "success");
+            } else {
+                showToast(`Error: ${data.message}`, "danger");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Failed to connect to server.", "danger");
         });
 }
 
-</script>
+function showToast(message, type = 'info') {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `lm-toast lm-toast-${type}`;
+    
+    let icon = 'bi-info-circle';
+    if (type === 'success') icon = 'bi-check-circle-fill';
+    if (type === 'danger') icon = 'bi-exclamation-triangle-fill';
+    if (type === 'warning') icon = 'bi-exclamation-circle-fill';
+    
+    toast.innerHTML = `<i class="bi ${icon}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 50);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 
-</body>
-</html>
+function toggleMute(btn) {
+    btn.classList.toggle('text-muted');
+    const icon = btn.querySelector('i');
+    if (icon.classList.contains('bi-volume-up')) {
+        icon.classList.remove('bi-volume-up');
+        icon.classList.add('bi-volume-mute');
+    } else {
+        icon.classList.remove('bi-volume-mute');
+        icon.classList.add('bi-volume-up');
+    }
+}
+
+function toggleRecord(btn) {
+    btn.classList.toggle('active');
+}
+
+function toggleCameraControl(camId, btn) {
+    const isActive = btn.classList.contains('active');
+    const action = isActive ? 'stop' : 'start';
+    
+    btn.disabled = true;
+    fetch(`/camera_control/?camera=${camId}&action=${action}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success' || !data.error) {
+                btn.classList.toggle('active');
+            } else {
+                console.error("Failed to toggle camera", data);
+            }
+        })
+        .catch(err => console.error(err))
+        .finally(() => {
+            btn.disabled = false;
+        });
+}
+
+// Poll occupancy data
+setInterval(() => {
+    fetch("/occupancy/")
+        .then(res => res.json())
+        .then(data => {
+            const elEntries = document.getElementById('entries-count');
+            const elExits = document.getElementById('exits-count');
+            const elOcc = document.getElementById('emp-present');
+            
+            if(elEntries) elEntries.innerHTML = data.entry;
+            if(elExits) elExits.innerHTML = data.exit;
+            if(elOcc) elOcc.innerHTML = data.occupancy;
+        })
+        .catch(err => console.error(err));
+}, 2000);
+
+// Start polling
+setInterval(pollCameraStatus, 5000);
+pollCameraStatus();
+</script>
+{% endblock %}

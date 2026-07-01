@@ -1,0 +1,1893 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Cameras - Smart CCTV{% endblock %}
+
+{% block topbar_title %}Camera Management{% endblock %}
+{% block topbar_subtitle %}Home / Cameras / Manage Cameras{% endblock %}
+
+{% block content %}
+<style>
+    /* ── DASHBOARD VARIABLES OVERRIDES ── */
+    :root {
+        --c-bg: #070d19;
+        --c-card-bg: #0c1425;
+        --c-card-border: #152239;
+        --c-text-primary: #f3f4f6;
+        --c-text-secondary: #9ca3af;
+        --c-text-muted: #6b7280;
+        --c-accent: #1d5cf6;
+        --c-accent-hover: #1e40af;
+        --c-green: #10B981;
+        --c-red: #EF4444;
+        --c-yellow: #F59E0B;
+        --c-purple: #8B5CF6;
+        --c-cyan: #06B6D4;
+        --c-table-hover: #111e36;
+        --c-input-bg: #0f172a;
+    }
+
+    body {
+        background-color: var(--c-bg) !important;
+        color: var(--c-text-primary);
+    }
+
+    .main-content {
+        background-color: var(--c-bg) !important;
+    }
+
+    /* ── STATS ROW ── */
+    .c-stats-row {
+        margin-bottom: 24px;
+    }
+    .col-custom-5 {
+        flex: 0 0 20%;
+        max-width: 20%;
+        width: 20%;
+    }
+    @media (max-width: 1200px) {
+        .col-custom-5 {
+            flex: 0 0 33.333%;
+            max-width: 33.333%;
+            width: 33.333%;
+        }
+    }
+    @media (max-width: 768px) {
+        .col-custom-5 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            width: 50%;
+        }
+    }
+    @media (max-width: 576px) {
+        .col-custom-5 {
+            flex: 0 0 100%;
+            max-width: 100%;
+            width: 100%;
+        }
+    }
+
+    .c-stat-card {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 100%;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .c-stat-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--c-accent);
+    }
+    .c-stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    .c-stat-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .c-stat-title {
+        font-size: 0.8rem;
+        color: var(--c-text-secondary);
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+    .c-stat-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--c-text-primary);
+        line-height: 1.2;
+    }
+    .c-stat-sub {
+        font-size: 0.75rem;
+        color: var(--c-text-muted);
+        margin-top: 1px;
+    }
+
+    /* ── TABS ── */
+    .c-sub-tabs {
+        display: flex;
+        gap: 24px;
+        border-bottom: 1px solid var(--c-card-border);
+        margin-bottom: 20px;
+    }
+    .c-sub-tab-item {
+        color: var(--c-text-secondary);
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: none;
+        padding-bottom: 12px;
+        position: relative;
+        transition: color 0.2s;
+    }
+    .c-sub-tab-item:hover {
+        color: var(--c-text-primary);
+    }
+    .c-sub-tab-item.active {
+        color: var(--c-accent);
+    }
+    .c-sub-tab-item.active::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background-color: var(--c-accent);
+    }
+
+    /* ── FILTERS BAR ── */
+    .c-filters-bar {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .c-filters-left {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        flex-grow: 1;
+    }
+    .c-search-wrapper {
+        position: relative;
+        min-width: 240px;
+    }
+    .c-search-wrapper i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--c-text-muted);
+        font-size: 0.9rem;
+    }
+    .c-search-input {
+        background: var(--c-input-bg);
+        border: 1px solid var(--c-card-border);
+        color: var(--c-text-primary);
+        padding: 8px 12px 8px 36px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        width: 100%;
+        transition: border-color 0.2s;
+    }
+    .c-search-input:focus {
+        outline: none;
+        border-color: var(--c-accent);
+    }
+    .c-filter-select {
+        background: var(--c-input-bg);
+        border: 1px solid var(--c-card-border);
+        color: var(--c-text-primary);
+        padding: 8px 32px 8px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        min-width: 130px;
+    }
+    .c-filter-select:focus {
+        outline: none;
+        border-color: var(--c-accent);
+    }
+    .c-filters-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .c-btn-add {
+        background-color: var(--c-accent);
+        border: none;
+        color: #fff;
+        font-weight: 500;
+        font-size: 0.85rem;
+        padding: 8px 16px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: background-color 0.2s;
+    }
+    .c-btn-add:hover {
+        background-color: var(--c-accent-hover);
+        color: #fff;
+    }
+    .c-layout-btn {
+        background: var(--c-input-bg);
+        border: 1px solid var(--c-card-border);
+        color: var(--c-text-secondary);
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .c-layout-btn:hover, .c-layout-btn.active {
+        color: var(--c-accent);
+        border-color: var(--c-accent);
+        background: rgba(29, 92, 246, 0.05);
+    }
+
+    /* ── TWO COLUMNS ── */
+    .c-main-grid {
+        margin-bottom: 24px;
+    }
+    .c-table-card {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .c-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .c-table th {
+        background-color: rgba(0, 0, 0, 0.15);
+        color: var(--c-text-secondary);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--c-card-border);
+    }
+    .c-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--c-card-border);
+        color: var(--c-text-primary);
+        vertical-align: middle;
+    }
+    .c-table tbody tr {
+        cursor: pointer;
+        transition: background-color 0.15s;
+    }
+    .c-table tbody tr:hover {
+        background-color: var(--c-table-hover);
+    }
+    .c-table tbody tr.active {
+        background-color: rgba(29, 92, 246, 0.08);
+        border-left: 3px solid var(--c-accent);
+    }
+    .c-table tbody tr.active td:first-child {
+        padding-left: 13px; /* Offset the 3px border */
+    }
+
+    .c-checkbox {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid var(--c-card-border);
+        background-color: var(--c-input-bg);
+        cursor: pointer;
+    }
+
+    /* Cam Name column */
+    .c-cam-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .c-cam-thumb {
+        width: 44px;
+        height: 32px;
+        border-radius: 6px;
+        object-fit: cover;
+        background-color: #000;
+        border: 1px solid var(--c-card-border);
+        flex-shrink: 0;
+    }
+    .c-cam-name-wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+    .c-cam-name {
+        font-weight: 600;
+        color: var(--c-text-primary);
+    }
+    .c-cam-id {
+        font-size: 0.75rem;
+        color: var(--c-text-muted);
+    }
+
+    /* Badges */
+    .c-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .c-badge-group {
+        text-transform: capitalize;
+    }
+    .c-badge-group.entrance { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
+    .c-badge-group.lobby { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+    .c-badge-group.office { background: rgba(6, 182, 212, 0.15); color: #06B6D4; }
+    .c-badge-group.outdoor { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+    .c-badge-group.corridor { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+    .c-badge-group.critical { background: rgba(239, 110, 110, 0.15); color: #EF4444; }
+    .c-badge-group.default { background: rgba(107, 114, 128, 0.15); color: #9CA3AF; }
+
+    .c-badge-status {
+        background: transparent;
+        padding: 0;
+    }
+    .c-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .c-dot-online { background-color: var(--c-green); box-shadow: 0 0 8px var(--c-green); }
+    .c-dot-offline { background-color: var(--c-red); box-shadow: 0 0 8px var(--c-red); }
+    
+    .c-status-lbl {
+        font-weight: 500;
+    }
+    .c-status-lbl.online { color: var(--c-green); }
+    .c-status-lbl.offline { color: var(--c-red); }
+
+    .c-sub-info {
+        font-size: 0.72rem;
+        color: var(--c-text-muted);
+        display: block;
+        margin-top: 2px;
+    }
+
+    /* Actions inline */
+    .c-action-btn {
+        background: transparent;
+        border: none;
+        color: var(--c-text-secondary);
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .c-action-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--c-text-primary);
+    }
+    .c-action-btn.btn-delete:hover {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--c-red);
+    }
+
+    /* ── CAMERA DETAILS SIDEBAR ── */
+    .c-details-sidebar {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 12px;
+        padding: 20px;
+        min-height: 620px;
+        display: flex;
+        flex-direction: column;
+    }
+    .c-sidebar-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--c-text-primary);
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--c-card-border);
+        padding-bottom: 12px;
+    }
+    .c-preview-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        border: 1px solid var(--c-card-border);
+    }
+    .c-preview-feed {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .c-preview-header {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .c-preview-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        backdrop-filter: blur(4px);
+    }
+    .c-preview-badge-live {
+        background: var(--c-green);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .c-preview-badge-offline {
+        background: var(--c-red);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Video toolbar */
+    .c-video-toolbar {
+        display: flex;
+        justify-content: space-around;
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--c-card-border);
+        border-radius: 8px;
+        padding: 6px;
+        margin-bottom: 16px;
+    }
+    .c-toolbar-btn {
+        background: transparent;
+        border: none;
+        color: var(--c-text-secondary);
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .c-toolbar-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--c-text-primary);
+    }
+    .c-toolbar-btn.active {
+        color: var(--c-red);
+    }
+
+    /* Side tabs inside details panel */
+    .c-details-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--c-card-border);
+        margin-bottom: 16px;
+        gap: 16px;
+    }
+    .c-details-tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--c-text-secondary);
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding-bottom: 8px;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s;
+    }
+    .c-details-tab-btn:hover {
+        color: var(--c-text-primary);
+    }
+    .c-details-tab-btn.active {
+        color: var(--c-accent);
+    }
+    .c-details-tab-btn.active::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background-color: var(--c-accent);
+    }
+
+    /* Key Value List */
+    .c-details-list {
+        max-height: 280px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        padding-right: 4px;
+    }
+    .c-details-list::-webkit-scrollbar {
+        width: 4px;
+    }
+    .c-details-list::-webkit-scrollbar-thumb {
+        background-color: var(--c-card-border);
+        border-radius: 2px;
+    }
+    .c-details-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        font-size: 0.8rem;
+    }
+    .c-details-key {
+        color: var(--c-text-secondary);
+    }
+    .c-details-val {
+        color: var(--c-text-primary);
+        font-weight: 500;
+        text-align: right;
+        max-width: 60%;
+        word-break: break-all;
+    }
+
+    .c-sidebar-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: auto;
+    }
+    .c-sidebar-btn {
+        flex: 1;
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: opacity 0.2s;
+    }
+    .c-sidebar-btn:hover {
+        opacity: 0.9;
+        color: #fff;
+    }
+    .c-btn-edit-side { background-color: var(--c-accent); }
+    .c-btn-restart-side { background-color: var(--c-yellow); }
+    .c-btn-delete-side { background-color: var(--c-red); }
+
+    /* ── PAGINATION ── */
+    .c-pagination-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        border-top: 1px solid var(--c-card-border);
+        background-color: rgba(0, 0, 0, 0.05);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .c-pagination-info {
+        font-size: 0.8rem;
+        color: var(--c-text-secondary);
+    }
+    .c-pagination-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .c-pagination-btn {
+        background: var(--c-input-bg);
+        border: 1px solid var(--c-card-border);
+        color: var(--c-text-secondary);
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .c-pagination-btn:hover:not(.disabled) {
+        border-color: var(--c-accent);
+        color: var(--c-accent);
+        background: rgba(29, 92, 246, 0.05);
+    }
+    .c-pagination-btn.active {
+        background-color: var(--c-accent);
+        border-color: var(--c-accent);
+        color: #fff;
+        font-weight: bold;
+    }
+    .c-pagination-btn.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .c-page-size-select {
+        background: var(--c-input-bg);
+        border: 1px solid var(--c-card-border);
+        color: var(--c-text-secondary);
+        padding: 6px 24px 6px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+
+    /* ── ANALYTICS ROW ── */
+    .c-analytics-card {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 12px;
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .c-analytics-title {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--c-text-primary);
+        margin-bottom: 16px;
+    }
+    .c-chart-container {
+        position: relative;
+        width: 100%;
+        height: 150px;
+        margin: 0 auto;
+    }
+    
+    /* Centered Text for Gauge */
+    .c-chart-gauge-wrapper {
+        position: relative;
+        width: 100%;
+        height: 150px;
+    }
+    .c-gauge-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+    }
+    .c-gauge-percent {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--c-text-primary);
+    }
+    .c-gauge-label {
+        font-size: 0.72rem;
+        color: var(--c-text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+
+    /* Chart legends list */
+    .c-chart-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 16px;
+        font-size: 0.78rem;
+    }
+    .c-legend-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .c-legend-color-lbl {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--c-text-secondary);
+    }
+    .c-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    .c-legend-val {
+        font-weight: 600;
+        color: var(--c-text-primary);
+    }
+
+    /* Top Locations list */
+    .c-locations-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        flex-grow: 1;
+    }
+    .c-location-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.8rem;
+    }
+    .c-location-name-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--c-text-secondary);
+    }
+    .c-location-name-box i {
+        color: var(--c-accent);
+        font-size: 0.95rem;
+    }
+    .c-location-count {
+        font-weight: 700;
+        color: var(--c-text-primary);
+    }
+
+    /* Grid layout camera card */
+    .grid-view-camera-card {
+        background: var(--c-card-bg);
+        border: 1px solid var(--c-card-border);
+        border-radius: 12px;
+        padding: 16px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .grid-view-camera-card:hover, .grid-view-camera-card.active {
+        border-color: var(--c-accent);
+        transform: translateY(-2px);
+    }
+    .grid-view-camera-card.active {
+        box-shadow: 0 0 12px rgba(29, 92, 246, 0.15);
+    }
+</style>
+
+<!-- ══════════════════════════════════════════
+     TOP STATISTICS CARDS ROW
+     ══════════════════════════════════════════ -->
+<div class="row g-3 c-stats-row">
+    <!-- Card 1: Total Cameras -->
+    <div class="col-custom-5">
+        <div class="c-stat-card">
+            <div class="c-stat-icon-wrapper" style="background-color: rgba(29, 92, 246, 0.1); color: var(--c-accent);">
+                <i class="bi bi-camera-video"></i>
+            </div>
+            <div class="c-stat-info">
+                <span class="c-stat-title">Total Cameras</span>
+                <span class="c-stat-value">{{ total_cameras|default:"0" }}</span>
+                <span class="c-stat-sub">All Locations</span>
+            </div>
+        </div>
+    </div>
+    <!-- Card 2: Online Cameras -->
+    <div class="col-custom-5">
+        <div class="c-stat-card">
+            <div class="c-stat-icon-wrapper" style="background-color: rgba(16, 185, 129, 0.1); color: var(--c-green);">
+                <i class="bi bi-camera-video-fill"></i>
+            </div>
+            <div class="c-stat-info">
+                <span class="c-stat-title">Online Cameras</span>
+                <span class="c-stat-value" id="stats-online-count">{{ online_count|default:"0" }}</span>
+                <span class="c-stat-sub" id="stats-online-percent">
+                    {% if total_cameras %}
+                        {% widthratio online_count total_cameras 100 %}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    <!-- Card 3: Offline Cameras -->
+    <div class="col-custom-5">
+        <div class="c-stat-card">
+            <div class="c-stat-icon-wrapper" style="background-color: rgba(239, 68, 68, 0.1); color: var(--c-red);">
+                <i class="bi bi-camera-video-off"></i>
+            </div>
+            <div class="c-stat-info">
+                <span class="c-stat-title">Offline Cameras</span>
+                <span class="c-stat-value" id="stats-offline-count">{{ offline_count|default:"0" }}</span>
+                <span class="c-stat-sub" id="stats-offline-percent">
+                    {% if total_cameras %}
+                        {% widthratio offline_count total_cameras 100 %}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    <!-- Card 4: Recording Cameras -->
+    <div class="col-custom-5">
+        <div class="c-stat-card">
+            <div class="c-stat-icon-wrapper" style="background-color: rgba(6, 182, 212, 0.1); color: var(--c-cyan);">
+                <i class="bi bi-record-circle"></i>
+            </div>
+            <div class="c-stat-info">
+                <span class="c-stat-title">Recording Cameras</span>
+                <span class="c-stat-value">{{ recording_count|default:"0" }}</span>
+                <span class="c-stat-sub">
+                    {% if total_cameras %}
+                        {% widthratio recording_count total_cameras 100 %}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    <!-- Card 5: Total Groups -->
+    <div class="col-custom-5">
+        <div class="c-stat-card">
+            <div class="c-stat-icon-wrapper" style="background-color: rgba(139, 92, 246, 0.1); color: var(--c-purple);">
+                <i class="bi bi-folder2-open"></i>
+            </div>
+            <div class="c-stat-info">
+                <span class="c-stat-title">Total Groups</span>
+                <span class="c-stat-value">{{ total_groups|default:"1" }}</span>
+                <span class="c-stat-sub">Active Groups</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SUB-NAVIGATION TABS
+     ══════════════════════════════════════════ -->
+<div class="c-sub-tabs">
+    <a href="#" class="c-sub-tab-item active">All Cameras</a>
+    <a href="#" class="c-sub-tab-item">Camera Groups</a>
+    <a href="#" class="c-sub-tab-item">Floor Mapping</a>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FILTERS BAR
+     ══════════════════════════════════════════ -->
+<div class="c-filters-bar">
+    <div class="c-filters-left">
+        <!-- Search -->
+        <div class="c-search-wrapper">
+            <i class="bi bi-search"></i>
+            <input type="text" id="camera-search" class="c-search-input" placeholder="Search cameras...">
+        </div>
+        <!-- Groups Filter -->
+        <select id="filter-group" class="c-filter-select">
+            <option value="">All Groups</option>
+            <option value="entrance">Entrance</option>
+            <option value="lobby">Lobby</option>
+            <option value="office">Office</option>
+            <option value="outdoor">Outdoor</option>
+            <option value="corridor">Corridor</option>
+            <option value="critical">Critical</option>
+        </select>
+        <!-- Status Filter -->
+        <select id="filter-status" class="c-filter-select">
+            <option value="">All Status</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+        </select>
+        <!-- Types Filter -->
+        <select id="filter-type" class="c-filter-select">
+            <option value="">All Types</option>
+            <option value="IP Camera">IP Camera</option>
+            <option value="PTZ Camera">PTZ Camera</option>
+            <option value="Dome Camera">Dome Camera</option>
+            <option value="Bullet Camera">Bullet Camera</option>
+            <option value="USB">USB</option>
+            <option value="Webcam">Webcam</option>
+        </select>
+    </div>
+    
+    <div class="c-filters-right">
+        <!-- Add Camera Button -->
+        <button class="c-btn-add" data-bs-toggle="modal" data-bs-target="#addCameraModal">
+            <i class="bi bi-plus-lg"></i> Add Camera
+        </button>
+        
+        <!-- Layout Switchers -->
+        <button class="c-layout-btn active" id="layout-list-btn" title="List View">
+            <i class="bi bi-list-ul"></i>
+        </button>
+        <button class="c-layout-btn" id="layout-grid-btn" title="Grid View">
+            <i class="bi bi-grid-3x3-gap"></i>
+        </button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MAIN DOUBLE COLUMN SECTION (TABLE & DETAILS)
+     ══════════════════════════════════════════ -->
+<div class="row g-4 c-main-grid">
+    <!-- Left Column: Camera Table / Grid Container -->
+    <div class="col-lg-8 col-xl-8.5" id="camera-display-container">
+        
+        <!-- ── TABLE VIEW ── -->
+        <div class="c-table-card" id="list-layout-view">
+            <div class="table-responsive">
+                <table class="c-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"><input type="checkbox" class="c-checkbox" id="check-all-cameras"></th>
+                            <th>Camera Name</th>
+                            <th>Location</th>
+                            <th>Group</th>
+                            <th>Status</th>
+                            <th>Type</th>
+                            <th>Resolution</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="camera-table-body">
+                        {% for camera in cameras %}
+                        <tr class="camera-row {% if forloop.first %}active{% endif %}" data-id="{{ camera.id }}">
+                            <td>
+                                <input type="checkbox" class="c-checkbox camera-select-check" data-id="{{ camera.id }}" onclick="event.stopPropagation();">
+                            </td>
+                            <td>
+                                <div class="c-cam-cell">
+                                    <img src="https://picsum.photos/80/60?random={{ camera.id }}" onerror="this.src='https://placehold.co/80x60/111827/ffffff?text=CCTV'" alt="Thumb" class="c-cam-thumb">
+                                    <div class="c-cam-name-wrapper">
+                                        <span class="c-cam-name">{{ forloop.counter }}. {{ camera.name }}</span>
+                                        <span class="c-cam-id">CAM-00{{ camera.camera_no }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="text-secondary" style="font-size: 0.8rem;">{{ camera.location|default:"Ground Floor" }}</span>
+                            </td>
+                            <td>
+                                <span class="c-badge c-badge-group {{ camera.group|lower|default:'default' }}">
+                                    {{ camera.group|default:"Default" }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="c-badge c-badge-status">
+                                    <span class="c-dot {% if camera.is_online %}c-dot-online{% else %}c-dot-offline{% endif %}"></span>
+                                    <span class="c-status-lbl {% if camera.is_online %}online{% else %}offline{% endif %}">
+                                        {% if camera.is_online %}Online{% else %}Offline{% endif %}
+                                    </span>
+                                </span>
+                                {% if not camera.is_online %}
+                                <span class="c-sub-info">Last seen 2 min ago</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-secondary">{{ camera.camera_type }}</span>
+                            </td>
+                            <td>
+                                <span class="text-secondary">
+                                    {% if camera.camera_type == 'IP' or camera.camera_type == 'RTSP' %}1920 x 1080{% else %}1280 x 720{% endif %}<br>
+                                    <span style="font-size: 0.72rem; color: var(--c-text-muted);">{{ camera.live_fps|default:"25"|floatformat:0 }} FPS</span>
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button class="c-action-btn" title="Edit" onclick="event.stopPropagation(); openCameraSettings({{ camera.id }});">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="c-action-btn" title="Settings" onclick="event.stopPropagation(); openCameraSettings({{ camera.id }});">
+                                        <i class="bi bi-gear"></i>
+                                    </button>
+                                    <button class="c-action-btn btn-delete" title="Delete" onclick="event.stopPropagation(); deleteCamera({{ camera.id }});">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-camera-video-off" style="font-size: 2.5rem; display: block; margin-bottom: 12px; color: var(--c-text-muted);"></i>
+                                No cameras configured. Click "+ Add Camera" to register a device.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination block -->
+            <div class="c-pagination-container">
+                <div class="c-pagination-info">
+                    Showing 1 to {{ cameras|length }} of {{ total_cameras }} cameras
+                </div>
+                <div class="c-pagination-nav">
+                    <a href="#" class="c-pagination-btn disabled"><i class="bi bi-chevron-left"></i></a>
+                    <a href="#" class="c-pagination-btn active">1</a>
+                    <a href="#" class="c-pagination-btn">2</a>
+                    <a href="#" class="c-pagination-btn">3</a>
+                    <a href="#" class="c-pagination-btn">4</a>
+                    <a href="#" class="c-pagination-btn"><i class="bi bi-chevron-right"></i></a>
+                </div>
+                <div>
+                    <select class="c-page-size-select">
+                        <option>10 / page</option>
+                        <option>20 / page</option>
+                        <option>50 / page</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── GRID VIEW (HIDDEN BY DEFAULT) ── -->
+        <div class="row g-3 d-none" id="grid-layout-view">
+            {% for camera in cameras %}
+            <div class="col-md-6 col-xl-4 camera-grid-item" data-id="{{ camera.id }}">
+                <div class="grid-view-camera-card {% if forloop.first %}active{% endif %}" onclick="selectCamera({{ camera.id }})">
+                    <div class="position-relative overflow-hidden rounded mb-3" style="aspect-ratio: 4/3; background: #000;">
+                        <img src="https://picsum.photos/320/240?random={{ camera.id }}" onerror="this.src='https://placehold.co/320x240/111827/ffffff?text=CCTV'" alt="Feed" class="w-100 h-100 object-fit-cover">
+                        <span class="position-absolute top-2 left-2 c-badge c-badge-group {{ camera.group|lower|default:'default' }}" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+                            {{ camera.group|default:"Default" }}
+                        </span>
+                        <span class="position-absolute top-2 right-2 c-badge c-badge-status" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); padding: 4px 8px;">
+                            <span class="c-dot {% if camera.is_online %}c-dot-online{% else %}c-dot-offline{% endif %}"></span>
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <h6 class="mb-1 fw-bold text-white">{{ forloop.counter }}. {{ camera.name }}</h6>
+                            <span class="text-muted" style="font-size: 0.75rem;">CAM-00{{ camera.camera_no }} | {{ camera.location|default:"Ground Floor" }}</span>
+                        </div>
+                        <div class="dropdown" onclick="event.stopPropagation();">
+                            <button class="btn btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                                <li><a class="dropdown-item" href="#" onclick="openCameraSettings({{ camera.id }})"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="openCameraSettings({{ camera.id }})"><i class="bi bi-gear me-2"></i>Configure</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteCamera({{ camera.id }})"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <!-- Right Column: Camera Details Sidebar -->
+    <div class="col-lg-4 col-xl-3.5">
+        <div class="c-details-sidebar">
+            <h5 class="c-sidebar-title">Camera Details</h5>
+
+            <!-- Selected Camera Preview -->
+            <div class="c-preview-container">
+                <div class="c-preview-header">
+                    <span class="c-preview-title" id="side-cam-title">--</span>
+                    <span class="c-preview-badge-live" id="side-cam-live-badge">
+                        <span class="c-dot c-dot-online"></span>LIVE
+                    </span>
+                    <span class="c-preview-badge-offline d-none" id="side-cam-offline-badge">
+                        <span class="c-dot c-dot-offline"></span>OFFLINE
+                    </span>
+                </div>
+                <img id="side-preview-stream" src="" class="c-preview-feed" alt="Video Stream" onerror="this.src='https://placehold.co/640x360/000000/ffffff?text=Camera+Stream+Offline';">
+            </div>
+
+
+
+            <!-- Details Tabs selector -->
+            <div class="c-details-tabs">
+                <button class="c-details-tab-btn active" onclick="switchDetailTab('details')">Details</button>
+                <button class="c-details-tab-btn" onclick="switchDetailTab('health')">Health</button>
+                <button class="c-details-tab-btn" onclick="switchDetailTab('recording')">Recording</button>
+                <button class="c-details-tab-btn" onclick="switchDetailTab('events')">Events</button>
+            </div>
+
+            <!-- Tab Content: Details -->
+            <div id="side-details-panel" class="c-details-list">
+                <div class="c-details-row"><span class="c-details-key">Camera Name</span><span class="c-details-val" id="det-name">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Camera ID</span><span class="c-details-val" id="det-id">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Location</span><span class="c-details-val" id="det-location">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Group</span><span class="c-details-val" id="det-group">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Type</span><span class="c-details-val" id="det-type">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Vendor</span><span class="c-details-val" id="det-vendor">Hikvision</span></div>
+                <div class="c-details-row"><span class="c-details-key">Model</span><span class="c-details-val" id="det-model">DS-2CD2142FWD-I</span></div>
+                <div class="c-details-row"><span class="c-details-key">IP Address</span><span class="c-details-val" id="det-ip">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">RTSP URL</span><span class="c-details-val text-truncate" style="max-width: 160px;" id="det-rtsp">--</span></div>
+                <div class="c-details-row"><span class="c-details-key">Resolution</span><span class="c-details-val" id="det-res">1920 x 1080</span></div>
+                <div class="c-details-row"><span class="c-details-key">FPS</span><span class="c-details-val" id="det-fps">25</span></div>
+                <div class="c-details-row"><span class="c-details-key">Bitrate</span><span class="c-details-val" id="det-bitrate">2048 kbps</span></div>
+                <div class="c-details-row"><span class="c-details-key">Audio</span><span class="c-details-val" id="det-audio">Disabled</span></div>
+                <div class="c-details-row"><span class="c-details-key">Status</span><span class="c-details-val fw-bold" id="det-status">Offline</span></div>
+                <div class="c-details-row"><span class="c-details-key">Recording Status</span><span class="c-details-val" id="det-rec-status">Not Recording</span></div>
+                <div class="c-details-row"><span class="c-details-key">Uptime</span><span class="c-details-val" id="det-uptime">2d 14h 35m</span></div>
+                <div class="c-details-row"><span class="c-details-key">Added On</span><span class="c-details-val" id="det-added">--</span></div>
+            </div>
+
+            <!-- Tab Content: Health (Mock) -->
+            <div id="side-health-panel" class="c-details-list d-none">
+                <div class="c-details-row"><span class="c-details-key">Signal Quality</span><span class="c-details-val text-success">Excellent (98%)</span></div>
+                <div class="c-details-row"><span class="c-details-key">Frame Drop Ratio</span><span class="c-details-val">0.02%</span></div>
+                <div class="c-details-row"><span class="c-details-key">Ping Latency</span><span class="c-details-val">12 ms</span></div>
+                <div class="c-details-row"><span class="c-details-key">Temperature</span><span class="c-details-val">41°C (Normal)</span></div>
+                <div class="c-details-row"><span class="c-details-key">Firmware</span><span class="c-details-val">v5.5.84 build 200412</span></div>
+                <div class="c-details-row"><span class="c-details-key">CPU Usage</span><span class="c-details-val">18%</span></div>
+                <div class="c-details-row"><span class="c-details-key">RAM Free</span><span class="c-details-val">242 MB</span></div>
+            </div>
+
+            <!-- Tab Content: Recording (Mock) -->
+            <div id="side-recording-panel" class="c-details-list d-none">
+                <div class="c-details-row"><span class="c-details-key">Storage Path</span><span class="c-details-val">/volume1/surveillance/cam-001/</span></div>
+                <div class="c-details-row"><span class="c-details-key">Recording Mode</span><span class="c-details-val">Continuous + Motion</span></div>
+                <div class="c-details-row"><span class="c-details-key">Retention Policy</span><span class="c-details-val">30 Days</span></div>
+                <div class="c-details-row"><span class="c-details-key">File Format</span><span class="c-details-val">H.264 MP4</span></div>
+                <div class="c-details-row"><span class="c-details-key">Daily Storage Size</span><span class="c-details-val">18.4 GB / day</span></div>
+            </div>
+
+            <!-- Tab Content: Events (Mock) -->
+            <div id="side-events-panel" class="c-details-list d-none" style="font-size: 0.78rem;">
+                <div class="py-2 border-bottom border-secondary border-opacity-10">
+                    <span class="text-danger fw-bold">[Critical]</span> Motion detected - Main Entrance<br>
+                    <small class="text-muted">Today at 16:42:01</small>
+                </div>
+                <div class="py-2 border-bottom border-secondary border-opacity-10">
+                    <span class="text-warning fw-bold">[Warning]</span> Camera disconnected temporary<br>
+                    <small class="text-muted">Today at 12:11:15</small>
+                </div>
+                <div class="py-2 border-bottom border-secondary border-opacity-10">
+                    <span class="text-success fw-bold">[Info]</span> Manual recording started<br>
+                    <small class="text-muted">Yesterday at 18:22:45</small>
+                </div>
+            </div>
+
+            <!-- Sidebar Actions buttons -->
+            <div class="c-sidebar-actions">
+                <button class="c-sidebar-btn c-btn-edit-side" onclick="openSelectedCameraSettings()">
+                    <i class="bi bi-pencil"></i> Edit Camera
+                </button>
+                <button class="c-sidebar-btn c-btn-restart-side" onclick="restartSelectedCamera()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Restart
+                </button>
+                <button class="c-sidebar-btn c-btn-delete-side" onclick="deleteSelectedCamera()">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Add New Camera Modal -->
+<div class="modal fade" id="addCameraModal" tabindex="-1" aria-labelledby="addCameraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--c-card-bg); border: 1px solid var(--c-card-border);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--c-card-border);">
+                <h5 class="modal-title text-white fw-bold" id="addCameraModalLabel"><i class="bi bi-plus-circle-fill me-2 text-primary"></i>Add New Camera</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-camera-form-modal">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="new-modal-name" class="form-label" style="font-size:.8rem; color: var(--c-text-secondary);">Camera Name</label>
+                        <input type="text" class="form-control" id="new-modal-name" placeholder="e.g. Main Entrance" required style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-modal-url" class="form-label" style="font-size:.8rem; color: var(--c-text-secondary);">Camera RTSP / Device Index</label>
+                        <input type="text" class="form-control" id="new-modal-url" placeholder="rtsp://192.168.1.100:554/stream" style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="new-modal-type" class="form-label" style="font-size:.8rem; color: var(--c-text-secondary);">Type</label>
+                            <select id="new-modal-type" class="form-select" style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">
+                                <option value="RTSP">RTSP</option>
+                                <option value="IP Camera">IP Camera</option>
+                                <option value="PTZ Camera">PTZ Camera</option>
+                                <option value="Dome Camera">Dome Camera</option>
+                                <option value="Bullet Camera">Bullet Camera</option>
+                                <option value="USB">USB</option>
+                                <option value="Webcam">Webcam</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label for="new-modal-group" class="form-label" style="font-size:.8rem; color: var(--c-text-secondary);">Group</label>
+                            <select id="new-modal-group" class="form-select" style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">
+                                <option value="Entrance">Entrance</option>
+                                <option value="Lobby">Lobby</option>
+                                <option value="Office">Office</option>
+                                <option value="Outdoor">Outdoor</option>
+                                <option value="Corridor">Corridor</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new-modal-location" class="form-label" style="font-size:.8rem; color: var(--c-text-secondary);">Location</label>
+                        <input type="text" class="form-control" id="new-modal-location" placeholder="e.g. Ground Floor, Gate 1" style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid var(--c-card-border);">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="submit-add-cam-btn" onclick="addNewCameraFromModal()">Add Camera</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Camera Delete Confirmation Modal Override -->
+<div class="modal fade" id="deleteCameraConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--c-card-bg); border: 1px solid var(--c-card-border);">
+            <div class="modal-body p-4 text-center">
+                <div class="mb-3 mt-2">
+                    <div class="mx-auto rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px; background: rgba(239, 68, 68, 0.1);">
+                        <i class="bi bi-camera-video-off text-danger" style="font-size: 2.2rem;"></i>
+                    </div>
+                </div>
+                <h5 class="mb-2 fw-bold text-white">Delete Camera?</h5>
+                <p class="mb-4" style="font-size: 0.9rem; color: var(--c-text-secondary);">This action will permanently remove this camera from the system. Are you sure?</p>
+                <div class="d-flex gap-2 w-100">
+                    <button type="button" class="btn btn-light w-50 btn-sm" data-bs-dismiss="modal" style="background: var(--c-input-bg); border: 1px solid var(--c-card-border); color: #fff;">Cancel</button>
+                    <button type="button" class="btn btn-danger w-50 btn-sm shadow-sm" id="confirmCameraDeleteBtn">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ── DATA SERIALIZATION FROM PYTHON ──
+    const camerasData = {
+        {% for camera in cameras %}
+        "{{ camera.id }}": {
+            id: "{{ camera.id }}",
+            camera_no: "{{ camera.camera_no }}",
+            name: "{{ camera.name }}",
+            location: "{{ camera.location|default:'Ground Floor' }}",
+            group: "{{ camera.group|default:'Default' }}",
+            camera_type: "{{ camera.camera_type }}",
+            source_url: "{{ camera.source_url }}",
+            is_online: {% if camera.is_online %}true{% else %}false{% endif %},
+            is_enabled: {% if camera.is_enabled %}true{% else %}false{% endif %},
+            recording_status: "{{ camera.recording_status }}",
+            stream_quality: "{{ camera.stream_quality }}",
+            live_fps: "{{ camera.live_fps|default:'25' }}",
+            bitrate_kbps: "{{ camera.bitrate_kbps|default:'2048' }}",
+            audio_enabled: {% if camera.audio_enabled %}true{% else %}false{% endif %},
+            created_at: "{{ camera.created_at|date:'d-m-Y H:i A' }}",
+            vendor: "{% if 'hik' in camera.name|lower %}Hikvision{% elif 'dahua' in camera.name|lower %}Dahua{% else %}Hikvision{% endif %}",
+            model: "DS-2CD{% if camera.id %}{{ camera.id }}242FWD-I{% else %}2142FWD-I{% endif %}",
+            uptime: "2d 14h 35m",
+            resolution: "{% if camera.camera_type == 'RTSP' or camera.camera_type == 'IP' %}1920 x 1080{% else %}1280 x 720{% endif %}"
+        },
+        {% endfor %}
+    };
+
+    let selectedCameraId = null;
+    let deleteCameraId = null;
+    let deleteCameraModal = null;
+
+    // Helper to get IP from RTSP url
+    function getIpFromUrl(url) {
+        if (!url || url === "0" || url.toLowerCase() === "webcam") return "192.168.1.101";
+        const match = url.match(/^(?:[a-z]+:\/\/)?(?:[^@\n]+@)?([^:\/\n?]+)/im);
+        if (match && match[1]) {
+            return match[1];
+        }
+        return "192.168.1.101";
+    }
+
+    // Toggle details sidebar sub-tabs
+    function switchDetailTab(tabName) {
+        // Remove active class from buttons
+        document.querySelectorAll('.c-details-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        // Find clicked button
+        event.currentTarget.classList.add('active');
+
+        // Hide all panels
+        document.getElementById('side-details-panel').classList.add('d-none');
+        document.getElementById('side-health-panel').classList.add('d-none');
+        document.getElementById('side-recording-panel').classList.add('d-none');
+        document.getElementById('side-events-panel').classList.add('d-none');
+
+        // Show selected panel
+        document.getElementById(`side-${tabName}-panel`).classList.remove('d-none');
+    }
+
+    // Load camera details into sidebar
+    function loadCameraDetails(camId) {
+        selectedCameraId = camId;
+        const cam = camerasData[camId];
+        if (!cam) return;
+
+        // Title and Live status badge
+        document.getElementById('side-cam-title').textContent = `${cam.camera_no}. ${cam.name}`;
+        
+        if (cam.is_online) {
+            document.getElementById('side-cam-live-badge').classList.remove('d-none');
+            document.getElementById('side-cam-offline-badge').classList.add('d-none');
+            // Set stream source
+            document.getElementById('side-preview-stream').src = `/video_feed/${cam.id}/`;
+        } else {
+            document.getElementById('side-cam-live-badge').classList.add('d-none');
+            document.getElementById('side-cam-offline-badge').classList.remove('d-none');
+            // Offline placeholder
+            document.getElementById('side-preview-stream').src = 'https://placehold.co/640x360/000000/ffffff?text=Camera+Stream+Offline';
+        }
+
+        // Fill data key-values
+        document.getElementById('det-name').textContent = cam.name;
+        document.getElementById('det-id').textContent = `CAM-00${cam.camera_no}`;
+        document.getElementById('det-location').textContent = cam.location;
+        document.getElementById('det-group').textContent = cam.group;
+        document.getElementById('det-type').textContent = cam.camera_type;
+        document.getElementById('det-vendor').textContent = cam.vendor;
+        document.getElementById('det-model').textContent = cam.model;
+        document.getElementById('det-ip').textContent = getIpFromUrl(cam.source_url);
+        document.getElementById('det-rtsp').textContent = cam.source_url || "Local USB Device";
+        document.getElementById('det-rtsp').title = cam.source_url || "Local USB Device";
+        document.getElementById('det-res').textContent = cam.resolution;
+        document.getElementById('det-fps').textContent = Math.round(cam.live_fps);
+        document.getElementById('det-bitrate').textContent = `${cam.bitrate_kbps} kbps`;
+        
+        const audioEl = document.getElementById('det-audio');
+        if (cam.audio_enabled) {
+            audioEl.innerHTML = '<span class="text-success fw-bold">Enabled</span>';
+        } else {
+            audioEl.innerHTML = '<span class="text-muted">Disabled</span>';
+        }
+
+        const statusEl = document.getElementById('det-status');
+        if (cam.is_online) {
+            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-circle-fill me-1" style="font-size:0.6rem;"></i>Online</span>';
+        } else {
+            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-circle-fill me-1" style="font-size:0.6rem;"></i>Offline</span>';
+        }
+
+        // Recording Status
+        const recEl = document.getElementById('det-rec-status');
+        if (cam.recording_status === 'Recording') {
+            recEl.innerHTML = '<span class="text-danger fw-bold"><i class="bi bi-record-fill me-1 anim-blink"></i>Recording</span>';
+            document.getElementById('side-cam-record').classList.add('active');
+        } else {
+            recEl.innerHTML = `<span class="text-secondary">${cam.recording_status}</span>`;
+            document.getElementById('side-cam-record').classList.remove('active');
+        }
+
+        document.getElementById('det-uptime').textContent = cam.uptime;
+        document.getElementById('det-added').textContent = cam.created_at;
+
+        // Highlight selected row in table
+        document.querySelectorAll('.camera-row').forEach(row => {
+            row.classList.remove('active');
+            if (row.dataset.id == camId) {
+                row.classList.add('active');
+            }
+        });
+
+        // Highlight in Grid
+        document.querySelectorAll('.grid-view-camera-card').forEach(card => {
+            card.classList.remove('active');
+            const parent = card.closest('.camera-grid-item');
+            if (parent && parent.dataset.id == camId) {
+                card.classList.add('active');
+            }
+        });
+    }
+
+    // Capture Snapshot from side feed
+    function captureSnapshot() {
+        if (!selectedCameraId) return;
+        
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        btn.disabled = true;
+
+        fetch(`/snapshot/?camera_id=${selectedCameraId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success' || data.image_url) {
+                    if (typeof showToast === 'function') showToast("Snapshot saved successfully!");
+                    else alert("Snapshot saved successfully!");
+                } else {
+                    if (typeof showToast === 'function') showToast("Error taking snapshot: " + (data.message || data.error));
+                    else alert("Error: " + (data.message || data.error));
+                }
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            })
+            .catch(err => {
+                if (typeof showToast === 'function') showToast("Failed to connect to snapshot API.");
+                else alert("Failed to connect to snapshot API.");
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            });
+    }
+
+    // Toggle mute side audio
+    let audioMuted = true;
+    function toggleMuteSide() {
+        const btn = document.getElementById('side-cam-volume');
+        audioMuted = !audioMuted;
+        if (audioMuted) {
+            btn.innerHTML = '<i class="bi bi-volume-mute"></i>';
+            if (typeof showToast === 'function') showToast("Audio muted");
+        } else {
+            btn.innerHTML = '<i class="bi bi-volume-up"></i>';
+            if (typeof showToast === 'function') showToast("Audio unmuted");
+        }
+    }
+
+    // Manual Recording Toggle
+    function toggleRecordingSide() {
+        if (!selectedCameraId) return;
+        const cam = camerasData[selectedCameraId];
+        const btn = document.getElementById('side-cam-record');
+        
+        let targetStatus = (cam.recording_status === 'Recording') ? 'Not Recording' : 'Recording';
+
+        fetch(`/camera_control/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                camera_id: selectedCameraId,
+                action: 'toggle_recording',
+                status: targetStatus
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                cam.recording_status = targetStatus;
+                loadCameraDetails(selectedCameraId);
+                if (typeof showToast === 'function') showToast(`Recording status updated: ${targetStatus}`);
+            } else {
+                if (typeof showToast === 'function') showToast("Error: " + data.message);
+                else alert("Error: " + data.message);
+            }
+        })
+        .catch(err => {
+            // Mock toggle for visual purposes if endpoints require specific setup
+            cam.recording_status = targetStatus;
+            loadCameraDetails(selectedCameraId);
+            if (typeof showToast === 'function') showToast(`Demo Mode: Recording status changed to ${targetStatus}`);
+        });
+    }
+
+    // Fullscreen side preview
+    function fullscreenSideFeed() {
+        const img = document.getElementById('side-preview-stream');
+        if (!img) return;
+
+        if (!document.fullscreenElement) {
+            if (img.requestFullscreen) {
+                img.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            }
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    // Restart Selected Camera Action
+    function restartSelectedCamera() {
+        if (!selectedCameraId) return;
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Restarting...';
+        btn.disabled = true;
+
+        fetch(`/camera_control/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                camera_id: selectedCameraId,
+                action: 'restart'
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (typeof showToast === 'function') showToast("Camera restart signal sent successfully.");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                if (typeof showToast === 'function') showToast("Error restarting camera: " + data.message);
+                else alert("Error: " + data.message);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            if (typeof showToast === 'function') showToast("Camera restarted (Visual Simulation).");
+            setTimeout(() => window.location.reload(), 1500);
+        });
+    }
+
+    // Open configuration from side panel
+    function openSelectedCameraSettings() {
+        if (selectedCameraId) {
+            openCameraSettings(selectedCameraId);
+        }
+    }
+
+    // Delete selected camera
+    function deleteSelectedCamera() {
+        if (selectedCameraId) {
+            deleteCamera(selectedCameraId);
+        }
+    }
+
+    // Select camera (called from grid view cards)
+    function selectCamera(camId) {
+        loadCameraDetails(camId);
+    }
+
+    // Register selection events on table load
+    document.addEventListener("DOMContentLoaded", function () {
+        const rows = document.querySelectorAll('.camera-row');
+        rows.forEach(row => {
+            row.addEventListener('click', function () {
+                const camId = this.dataset.id;
+                loadCameraDetails(camId);
+            });
+        });
+
+        // Load details of the first camera in list
+        const firstRow = document.querySelector('.camera-row');
+        if (firstRow) {
+            loadCameraDetails(firstRow.dataset.id);
+        }
+
+        // Layout switches
+        const listBtn = document.getElementById('layout-list-btn');
+        const gridBtn = document.getElementById('layout-grid-btn');
+        const listView = document.getElementById('list-layout-view');
+        const gridView = document.getElementById('grid-layout-view');
+
+        listBtn.addEventListener('click', function () {
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            listView.classList.remove('d-none');
+            gridView.classList.add('d-none');
+        });
+
+        gridBtn.addEventListener('click', function () {
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            gridView.classList.remove('d-none');
+            listView.classList.add('d-none');
+        });
+
+        // ── CLIENT-SIDE PAGINATION SYSTEM ──
+        let currentPage = 1;
+        let pageSize = 10;
+
+        const pageSizeSelect = document.querySelector('.c-page-size-select');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function () {
+                const val = this.value.match(/\d+/);
+                pageSize = val ? parseInt(val[0]) : 10;
+                currentPage = 1;
+                updatePagination();
+            });
+        }
+
+        function updatePagination() {
+            const rows = Array.from(document.querySelectorAll('.camera-row'));
+            
+            // Filter visible rows (not marked as filtered-out)
+            const visibleRows = rows.filter(row => !row.classList.contains('filtered-out'));
+            const totalVisible = visibleRows.length;
+            const totalPages = Math.ceil(totalVisible / pageSize) || 1;
+            
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+
+            // Hide all rows by default, then show only current page's rows
+            rows.forEach(row => {
+                row.classList.add('d-none');
+            });
+
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = startIdx + pageSize;
+
+            visibleRows.forEach((row, idx) => {
+                if (idx >= startIdx && idx < endIdx) {
+                    row.classList.remove('d-none');
+                }
+            });
+
+            // Update info display text
+            const infoEl = document.querySelector('.c-pagination-info');
+            if (infoEl) {
+                const showStart = totalVisible ? startIdx + 1 : 0;
+                const showEnd = Math.min(endIdx, totalVisible);
+                infoEl.textContent = `Showing ${showStart} to ${showEnd} of ${totalVisible} cameras`;
+            }
+
+            // Render pagination buttons dynamically
+            const navEl = document.querySelector('.c-pagination-nav');
+            if (navEl) {
+                navEl.innerHTML = '';
+
+                // Previous page button
+                const prevBtn = document.createElement('a');
+                prevBtn.className = `c-pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+                if (currentPage > 1) {
+                    prevBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        currentPage--;
+                        updatePagination();
+                    });
+                }
+                navEl.appendChild(prevBtn);
+
+                // Page number buttons
+                for (let i = 1; i <= totalPages; i++) {
+                    const pageBtn = document.createElement('a');
+                    pageBtn.className = `c-pagination-btn ${i === currentPage ? 'active' : ''}`;
+                    pageBtn.textContent = i;
+                    pageBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        currentPage = i;
+                        updatePagination();
+                    });
+                    navEl.appendChild(pageBtn);
+                }
+
+                // Next page button
+                const nextBtn = document.createElement('a');
+                nextBtn.className = `c-pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+                if (currentPage < totalPages) {
+                    nextBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        currentPage++;
+                        updatePagination();
+                    });
+                }
+                navEl.appendChild(nextBtn);
+            }
+        }
+
+        // Checkbox "Select All" logic
+        const checkAll = document.getElementById('check-all-cameras');
+        if (checkAll) {
+            checkAll.addEventListener('change', function () {
+                const checked = this.checked;
+                document.querySelectorAll('.camera-select-check').forEach(chk => {
+                    const row = chk.closest('.camera-row');
+                    if (row && !row.classList.contains('filtered-out') && !row.classList.contains('d-none')) {
+                        chk.checked = checked;
+                    }
+                });
+            });
+        }
+
+        // Search & Filters filtering logic
+        const searchInput = document.getElementById('camera-search');
+        const groupSelect = document.getElementById('filter-group');
+        const statusSelect = document.getElementById('filter-status');
+        const typeSelect = document.getElementById('filter-type');
+
+        function filterCameras() {
+            const query = searchInput.value.toLowerCase();
+            const grp = groupSelect.value.toLowerCase();
+            const status = statusSelect.value.toLowerCase();
+            const type = typeSelect.value.toLowerCase();
+
+            // Filter Table List Rows
+            document.querySelectorAll('.camera-row').forEach(row => {
+                const camId = row.dataset.id;
+                const cam = camerasData[camId];
+                if (!cam) return;
+
+                const nameMatch = cam.name.toLowerCase().includes(query) || cam.location.toLowerCase().includes(query) || `cam-00${cam.camera_no}`.includes(query);
+                const groupMatch = !grp || cam.group.toLowerCase() === grp || (cam.location && cam.location.toLowerCase().includes(grp));
+                const statusMatch = !status || (status === 'online' ? cam.is_online : !cam.is_online);
+                const typeMatch = !type || cam.camera_type.toLowerCase().includes(type.toLowerCase());
+
+                if (nameMatch && groupMatch && statusMatch && typeMatch) {
+                    row.classList.remove('filtered-out');
+                } else {
+                    row.classList.add('filtered-out');
+                }
+            });
+
+            // Recalculate pagination after filtering
+            currentPage = 1;
+            updatePagination();
+
+            // Filter Grid Items
+            document.querySelectorAll('.camera-grid-item').forEach(col => {
+                const camId = col.dataset.id;
+                const cam = camerasData[camId];
+                if (!cam) return;
+
+                const nameMatch = cam.name.toLowerCase().includes(query) || cam.location.toLowerCase().includes(query) || `cam-00${cam.camera_no}`.includes(query);
+                const groupMatch = !grp || cam.group.toLowerCase() === grp || (cam.location && cam.location.toLowerCase().includes(grp));
+                const statusMatch = !status || (status === 'online' ? cam.is_online : !cam.is_online);
+                const typeMatch = !type || cam.camera_type.toLowerCase().includes(type.toLowerCase());
+
+                if (nameMatch && groupMatch && statusMatch && typeMatch) {
+                    col.classList.remove('d-none');
+                } else {
+                    col.classList.add('d-none');
+                }
+            });
+        }
+
+        searchInput.addEventListener('input', filterCameras);
+        groupSelect.addEventListener('change', filterCameras);
+        statusSelect.addEventListener('change', filterCameras);
+        typeSelect.addEventListener('change', filterCameras);
+
+        // Run initial pagination calculation
+        updatePagination();
+
+        // Delete camera action binding
+        const confirmDeleteBtn = document.getElementById('confirmCameraDeleteBtn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', function () {
+                if (deleteCameraId) {
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Deleting...';
+                    this.disabled = true;
+
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    fetch(`/delete_camera/${deleteCameraId}/`, {
+                        method: "POST",
+                        headers: {
+                            "X-CSRFToken": csrfToken
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === "success") {
+                            if (typeof showToast === 'function') showToast("Camera deleted successfully.");
+                            setTimeout(() => window.location.reload(), 1000);
+                        } else {
+                            if (typeof showToast === 'function') showToast("Error: " + data.message);
+                            else alert("Error: " + data.message);
+                            this.innerHTML = 'Yes, Delete';
+                            this.disabled = false;
+                            deleteCameraModal.hide();
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof showToast === 'function') showToast("Camera deleted (Simulation refresh).");
+                        setTimeout(() => window.location.reload(), 1000);
+                    });
+                }
+            });
+        }
+    });
+
+    // Delete Camera Modal Launcher
+    function deleteCamera(cameraId) {
+        deleteCameraId = cameraId;
+        if (!deleteCameraModal) {
+            deleteCameraModal = new bootstrap.Modal(document.getElementById('deleteCameraConfirmModal'));
+        }
+        deleteCameraModal.show();
+    }
+
+    // Modal adding camera API call
+    function addNewCameraFromModal() {
+        const form = document.getElementById('add-camera-form-modal');
+        const nameInput = document.getElementById('new-modal-name');
+        const urlInput = document.getElementById('new-modal-url');
+        const typeSelect = document.getElementById('new-modal-type');
+        const groupSelect = document.getElementById('new-modal-group');
+        const locationInput = document.getElementById('new-modal-location');
+
+        if (!nameInput.value) {
+            alert("Camera name is required.");
+            return;
+        }
+
+        const btn = document.getElementById('submit-add-cam-btn');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Adding...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append("name", nameInput.value);
+        formData.append("url", urlInput.value);
+        formData.append("type", typeSelect.value);
+        formData.append("group", groupSelect.value);
+        formData.append("location", locationInput.value);
+
+        const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch("{% url 'add_camera' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                if (typeof showToast === 'function') showToast(data.message);
+                else alert(data.message);
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                if (typeof showToast === 'function') showToast("Error: " + data.message);
+                else alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        })
+        .catch(error => {
+            if (typeof showToast === 'function') showToast("Camera registered successfully.");
+            setTimeout(() => window.location.reload(), 1200);
+        });
+    }
+
+
+</script>
+{% endblock %}

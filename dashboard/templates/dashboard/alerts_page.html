@@ -1,0 +1,161 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}System Alerts - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bell-fill me-2 text-danger"></i>System Alerts</h2>
+    <div class="clock-box" id="clock" style="display: none;">--:--:--</div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header-custom d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--accent-red)"></i>
+                    All Recorded Alerts
+                </div>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" id="alertTypeFilter" style="width: auto;" onchange="filterAlerts()">
+                        <option value="all">All Alert Types</option>
+                    </select>
+                    <a href="{% url 'export_alerts_csv' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i> Export</a>
+                </div>
+            </div>
+            <div class="card-body-custom p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Alert Type</th>
+                                <th>Details / Message</th>
+                                <th>Timestamp</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTableBody">
+                            {% for alert in alerts %}
+                            <tr class="alert-row" data-alert-type="{{ alert.alert_type }}">
+                                <td>
+                                    {% if alert.alert_type == "Intrusion" or alert.alert_type == "Blacklisted Person" %}
+                                        <span class="badge bg-danger">Critical</span>
+                                    {% elif alert.alert_type == "Unknown Face" %}
+                                        <span class="badge bg-warning text-dark">Warning</span>
+                                    {% else %}
+                                        <span class="badge bg-info">Info</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong style="font-size:.9rem">{{ alert.alert_type }}</strong>
+                                </td>
+                                <td style="font-size:.85rem; color:var(--text-secondary)">
+                                    {{ alert.message }}
+                                </td>
+                                <td>
+                                    <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text-muted)">
+                                        {{ alert.created_at|date:"M d, Y H:i:s" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary py-0" style="font-size:.75rem" onclick="viewEvent('{{ alert.alert_type|escapejs }}', '{{ alert.message|escapejs }}', '{{ alert.created_at|date:"M d, Y H:i:s" }}', '{% if alert.alert_type == "Intrusion" or alert.alert_type == "Blacklisted Person" %}Critical{% elif alert.alert_type == "Unknown Face" %}Warning{% else %}Info{% endif %}')">View Event</button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-bell-slash d-block mb-2" style="font-size:2rem"></i>
+                                    No alerts found in the database.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Event Modal -->
+<div class="modal fade" id="viewEventModal" tabindex="-1" aria-labelledby="viewEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="viewEventModalLabel"><i class="bi bi-info-circle me-2 text-primary"></i>Event Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <p class="mb-2"><strong>Type:</strong> <span id="modalEventType"></span></p>
+                <p class="mb-2"><strong>Severity:</strong> <span id="modalEventSeverity"></span></p>
+                <p class="mb-2"><strong>Time:</strong> <span id="modalEventTime" style="font-family:'JetBrains Mono',monospace;"></span></p>
+                <p class="mb-1"><strong>Message:</strong></p>
+                <div class="p-3 rounded" style="background: var(--input-bg); border: 1px solid var(--input-border);" id="modalEventMessage">
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 mt-3">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let viewEventModalInstance = null;
+function viewEvent(type, message, time, severity) {
+    document.getElementById('modalEventType').textContent = type;
+    document.getElementById('modalEventMessage').textContent = message;
+    document.getElementById('modalEventTime').textContent = time;
+    
+    let severityHtml = '';
+    if (severity === 'Critical') {
+        severityHtml = '<span class="badge bg-danger">Critical</span>';
+    } else if (severity === 'Warning') {
+        severityHtml = '<span class="badge bg-warning text-dark">Warning</span>';
+    } else {
+        severityHtml = '<span class="badge bg-info">Info</span>';
+    }
+    document.getElementById('modalEventSeverity').innerHTML = severityHtml;
+    
+    if (!viewEventModalInstance) {
+        viewEventModalInstance = new bootstrap.Modal(document.getElementById('viewEventModal'));
+    }
+    viewEventModalInstance.show();
+}
+
+function filterAlerts() {
+    var filter = document.getElementById("alertTypeFilter").value;
+    var rows = document.querySelectorAll("#alertsTableBody tr.alert-row");
+    rows.forEach(function(row) {
+        var typeText = row.getAttribute("data-alert-type");
+        if (filter === "all" || typeText === filter) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    var rows = document.querySelectorAll("#alertsTableBody tr.alert-row");
+    var types = new Set();
+    rows.forEach(function(row) {
+        var type = row.getAttribute("data-alert-type");
+        if (type) {
+            types.add(type);
+        }
+    });
+    
+    var select = document.getElementById("alertTypeFilter");
+    
+    types.forEach(function(type) {
+        var option = document.createElement("option");
+        option.value = type;
+        option.textContent = type;
+        select.appendChild(option);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,992 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Face Register - Smart CCTV{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom Styling to match the design */
+    :root {
+        --bg-dark: #0f1219;
+        --card-bg: #151923;
+        --card-border: #1e2532;
+        --text-primary: #ffffff;
+        --text-secondary: #8c93a1;
+        --accent-blue: #2563eb;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-orange: #f59e0b;
+        --accent-purple: #8b5cf6;
+        --input-bg: #1a1e2a;
+    }
+    
+    .stats-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 16px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-right: 12px;
+    }
+    
+    .stats-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 4px 0;
+        color: var(--text-primary);
+    }
+    
+    .stats-meta {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: auto;
+    }
+    
+    .stats-link {
+        font-size: 0.8rem;
+        color: var(--accent-blue);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .form-panel, .grid-panel, .preview-panel {
+        background-color: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 20px;
+        height: 100%;
+    }
+    
+    .form-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+    }
+    
+    .form-control, .form-select {
+        background-color: var(--input-bg);
+        border: 1px solid var(--card-border);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        padding: 10px 12px;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: var(--input-bg);
+        border-color: var(--accent-blue);
+        color: var(--text-primary);
+        box-shadow: none;
+    }
+    
+    .type-btn {
+        background-color: transparent;
+        color: var(--text-secondary);
+        border: none;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .type-btn.active {
+        background-color: var(--accent-blue);
+        color: white;
+    }
+    
+    .grid-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+    
+    .grid-item {
+        background-color: var(--input-bg);
+        border: 1px dashed var(--card-border);
+        border-radius: 8px;
+        aspect-ratio: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    
+    .grid-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: none;
+    }
+    
+    .grid-item.has-image img {
+        display: block;
+    }
+    
+    .grid-item.active {
+        border-color: var(--accent-blue);
+        border-style: solid;
+    }
+    
+    .grid-number {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        z-index: 2;
+    }
+    
+    .main-viewfinder {
+        background-color: var(--input-bg);
+        border-radius: 8px;
+        width: 100%;
+        aspect-ratio: 4/3;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .main-viewfinder video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .nav-tabs-custom {
+        border-bottom: 1px solid var(--card-border);
+        margin-bottom: 20px;
+    }
+    
+    .nav-tabs-custom .nav-link {
+        color: var(--text-secondary);
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 10px 0;
+        margin-right: 24px;
+        font-weight: 500;
+        background: transparent;
+    }
+    
+    .nav-tabs-custom .nav-link.active {
+        color: var(--accent-blue);
+        border-bottom-color: var(--accent-blue);
+    }
+    
+    .preview-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .preview-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        background-color: var(--input-bg);
+        margin-right: 16px;
+        object-fit: cover;
+    }
+    
+    .preview-table {
+        width: 100%;
+        font-size: 0.85rem;
+    }
+    
+    .preview-table td {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .preview-table td:first-child {
+        color: var(--text-secondary);
+        width: 40%;
+    }
+    
+    .badge-status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-green);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h3 class="mb-1 d-flex align-items-center">
+            <i class="bi bi-list me-2 text-muted"></i> Face Registration
+        </h3>
+        <div class="text-muted small">Home / Face Registration / Dashboard</div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="input-group" style="width: 300px;">
+            <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-search"></i></span>
+            <input type="text" id="searchInput" class="form-control bg-dark border-secondary text-white" placeholder="Search by name, ID, phone..." onkeyup="filterTable()">
+        </div>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Total Registered</div>
+                    <div class="stats-value">{{ stats.total|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>All Categories</span>
+                <a href="#" class="stats-link">View All</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Employees</div>
+                    <div class="stats-value">{{ stats.employees|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>{{ stats.emp_pct }}%</span>
+                <a href="#" class="stats-link">View Employees</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon text-white" style="background-color: #4f46e5;">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Students</div>
+                    <div class="stats-value">{{ stats.students|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>{{ stats.stu_pct }}%</span>
+                <a href="#" class="stats-link">View Students</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon text-warning bg-warning bg-opacity-10">
+                    <i class="bi bi-person-lines-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Visitors</div>
+                    <div class="stats-value">{{ stats.visitors|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>{{ stats.vis_pct }}%</span>
+                <a href="#" class="stats-link">View Visitors</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon text-danger bg-danger bg-opacity-10">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Blacklisted</div>
+                    <div class="stats-value">{{ stats.blacklisted|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>{{ stats.blk_pct }}%</span>
+                <a href="#" class="stats-link">View Blacklist</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stats-card">
+            <div class="d-flex align-items-start">
+                <div class="stats-icon text-info bg-info bg-opacity-10">
+                    <i class="bi bi-eye-fill"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Watchlist</div>
+                    <div class="stats-value">{{ stats.watchlist|default:0 }}</div>
+                </div>
+            </div>
+            <div class="stats-meta mt-2">
+                <span>{{ stats.wat_pct }}%</span>
+                <a href="#" class="stats-link">View Watchlist</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="registerForm">
+    {% csrf_token %}
+    <input type="hidden" name="employee_id_pk" id="employee_id_pk" value="">
+    <div class="row g-3">
+        <!-- Left Column: Form -->
+        <div class="col-lg-4">
+            <div class="form-panel">
+                <ul class="nav nav-tabs-custom">
+                    <li class="nav-item"><a class="nav-link active" href="#">Add New Person</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Bulk Upload</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">Import from Device</a></li>
+                </ul>
+                
+                <div class="mb-3">
+                    <label class="form-label">Registration Type</label>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="type-btn active" onclick="setRole(this, 'Employee')">Employee</button>
+                        <button type="button" class="type-btn" onclick="setRole(this, 'Student')">Student</button>
+                        <button type="button" class="type-btn" onclick="setRole(this, 'Visitor')">Visitor</button>
+                        <button type="button" class="type-btn" onclick="setRole(this, 'VIP')">VIP</button>
+                        <button type="button" class="type-btn" onclick="setRole(this, 'Blacklist')">Blacklist</button>
+                        <button type="button" class="type-btn" onclick="setRole(this, 'Watchlist')">Watchlist</button>
+                    </div>
+                    <input type="hidden" name="person_role" id="person_role" value="Employee">
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="person_name" id="input_name" placeholder="Enter full name" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" name="employee_id" id="input_emp_id" placeholder="Enter employee ID">
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label">Department</label>
+                        <select class="form-select" name="department" id="input_dept">
+                            <option value="">Select department</option>
+                            <option value="IT Department">IT Department</option>
+                            <option value="HR Department">HR Department</option>
+                            <option value="Security">Security</option>
+                            <option value="Management">Management</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">Designation</label>
+                        <input type="text" class="form-control" name="designation" id="input_desig" placeholder="Enter designation">
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" class="form-control" name="phone_number" id="input_phone" placeholder="Enter phone number">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="input_email" placeholder="Enter email address">
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" name="date_of_birth" id="input_dob">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label">Gender</label>
+                        <select class="form-select" name="person_gender" id="input_gender">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Address</label>
+                    <textarea class="form-control" name="address" id="input_address" rows="2" placeholder="Enter address"></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" name="notes" id="input_notes" rows="2" placeholder="Enter notes (optional)"></textarea>
+                </div>
+                
+                <div>
+                    <label class="form-label mb-2 d-block">Capture Method</label>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-sm btn-primary">Webcam</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary">Upload Images</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary">IP Camera</button>
+                    </div>
+                    
+                    <div class="main-viewfinder" id="main-viewfinder">
+                        <video id="main_video" autoplay playsinline></video>
+                        <canvas id="main_canvas" style="display: none;"></canvas>
+                        <div id="camera_overlay" style="position: absolute; width: 150px; height: 180px; border: 2px dashed rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none;"></div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary w-100" onclick="captureMainImage()">
+                        <i class="bi bi-camera me-2"></i>Capture
+                    </button>
+                    <div class="text-center text-muted small mt-2">Click 'Capture' to take photo</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Middle Column: Grid -->
+        <div class="col-lg-5">
+            <div class="grid-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0"><i class="bi bi-images me-2 text-muted"></i>Captured Images (<span id="img_count">0</span>/10)</h6>
+                    <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Image Quality: Good</span>
+                </div>
+                
+                <div class="grid-container mb-4">
+                    {% for i in "123456789" %}
+                    <div class="grid-item" id="grid_item_{{ i }}" onclick="selectGridItem({{ i }})">
+                        <span class="grid-number">{{ i }}</span>
+                        <img id="grid_img_{{ i }}" src="" alt="">
+                        <input type="hidden" name="base64_{{ i }}" id="base64_{{ i }}">
+                        <input type="file" name="image_{{ i }}" id="file_{{ i }}" style="display:none;" onchange="handleFileUpload(this, {{ i }})">
+                        <div class="text-muted small"><i class="bi bi-plus-lg"></i></div>
+                    </div>
+                    {% endfor %}
+                    <!-- For compatibility with old view -->
+                    <input type="hidden" name="base64_front" id="base64_front">
+                    <input type="hidden" name="base64_right" id="base64_right">
+                    <input type="hidden" name="base64_left" id="base64_left">
+                    <input type="hidden" name="base64_10" id="base64_10">
+                </div>
+                
+                <div class="bg-dark rounded p-3 mb-4" style="border: 1px solid var(--card-border);">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="mb-2 text-white">Upload Guidelines</h6>
+                            <ul class="text-success small mb-0 ps-3" style="list-style-type: disc;">
+                                <li>Capture 5-10 clear face images</li>
+                                <li>Use different angles and expressions</li>
+                                <li>Good lighting and face clearly visible</li>
+                                <li>Remove glasses, mask, or headwear</li>
+                            </ul>
+                        </div>
+                        <div class="text-primary opacity-50" style="font-size: 3rem;">
+                            <i class="bi bi-person-bounding-box"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-3 mt-auto">
+                    <button type="button" class="btn" style="background-color: var(--input-bg); color: var(--text-primary); border: 1px solid var(--card-border);" onclick="window.location.reload()">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>Reset
+                    </button>
+                    <button type="submit" class="btn btn-primary px-4" id="submit_btn">
+                        <i class="bi bi-check2 me-2"></i><span id="submit_btn_text">Save & Register</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Details -->
+        <div class="col-lg-3">
+            <div class="preview-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">Person Details Preview</h6>
+                    <a href="#" class="text-primary small text-decoration-none"><i class="bi bi-pencil me-1"></i>Edit</a>
+                </div>
+                
+                <div class="preview-header">
+                    <img src="" id="preview_avatar" class="preview-avatar" style="display: none;">
+                    <div id="preview_avatar_placeholder" class="preview-avatar d-flex align-items-center justify-content-center text-muted">
+                        <i class="bi bi-person" style="font-size: 2rem;"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1 text-white" id="preview_name">-</h6>
+                        <div class="text-muted small" id="preview_role">Employee</div>
+                    </div>
+                </div>
+                
+                <table class="preview-table mb-4">
+                    <tr><td>Employee ID</td><td id="preview_emp_id">-</td></tr>
+                    <tr><td>Department</td><td id="preview_dept">-</td></tr>
+                    <tr><td>Designation</td><td id="preview_desig">-</td></tr>
+                    <tr><td>Phone</td><td id="preview_phone">-</td></tr>
+                    <tr><td>Email</td><td id="preview_email">-</td></tr>
+                    <tr><td>Type</td><td id="preview_type">Employee</td></tr>
+                    <tr><td>Status</td><td><span class="badge-status">Active</span></td></tr>
+                    <tr><td>Registered On</td><td>{% now "d M Y, h:i A" %}</td></tr>
+                </table>
+                
+                <h6 class="mb-3 mt-4">Face Recognition Info</h6>
+                <table class="preview-table mb-4">
+                    <tr><td>Face Encoding</td><td>Generated</td></tr>
+                    <tr><td>Quality Score</td><td><span class="text-success">92%</span></td></tr>
+                    <tr><td>Algorithm</td><td>ArcFace (128D)</td></tr>
+                    <tr><td>Registration ID</td><td>FR-{% now "Y-Hms" %}</td></tr>
+                    <tr><td>Last Updated</td><td>{% now "d M Y, h:i A" %}</td></tr>
+                </table>
+                
+                <h6 class="mb-3 mt-4 text-muted small text-uppercase">Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-sm text-success" style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);" onclick="captureMainImage()">
+                        <i class="bi bi-camera me-2"></i>Capture More Images
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="toggleFullScreen()">
+                        <i class="bi bi-arrows-fullscreen me-2"></i>View Full Screen
+                    </button>
+                    <button type="button" class="btn btn-sm text-warning" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);" onclick="clearAllImages()">
+                        <i class="bi bi-trash me-2"></i>Clear All Images
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Bottom Table -->
+<div class="row mt-4 mb-5">
+    <div class="col-12">
+        <div class="card bg-dark" style="background-color: var(--card-bg) !important; border: 1px solid var(--card-border);">
+            <div class="card-header d-flex justify-content-between align-items-center" style="background-color: transparent; border-bottom: 1px solid var(--card-border); padding: 15px 20px;">
+                <h6 class="mb-0 text-white">Recent Registrations</h6>
+                <a href="#" class="text-primary text-decoration-none small">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-dark mb-0 align-middle" style="background-color: transparent;">
+                        <thead style="background-color: rgba(0,0,0,0.2);">
+                            <tr>
+                                <th class="text-muted fw-normal" style="padding-left: 20px;">Name</th>
+                                <th class="text-muted fw-normal">ID / Number</th>
+                                <th class="text-muted fw-normal">Type</th>
+                                <th class="text-muted fw-normal">Department</th>
+                                <th class="text-muted fw-normal">Registered On</th>
+                                <th class="text-muted fw-normal">Status</th>
+                                <th class="text-muted fw-normal text-end" style="padding-right: 20px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for person in registered_faces|slice:":6" %}
+                            <tr id="emp-row-{{ person.id }}"
+                                data-id="{{ person.id }}"
+                                data-name="{{ person.name }}"
+                                data-role="{{ person.role }}"
+                                data-gender="{{ person.gender }}"
+                                data-empid="{{ person.employee_id|default:'' }}"
+                                data-dept="{{ person.department|default:'' }}"
+                                data-desig="{{ person.designation|default:'' }}"
+                                data-phone="{{ person.phone_number|default:'' }}"
+                                data-email="{{ person.email|default:'' }}"
+                                data-dob="{{ person.date_of_birth|date:'Y-m-d'|default:'' }}"
+                                data-address="{{ person.address|default:'' }}"
+                                data-notes="{{ person.notes|default:'' }}"
+                                data-registered="{{ person.registered_on|date:'d M Y, h:i A'|default:'' }}"
+                                data-img-front="{% if person.image_front %}{{ person.image_front.url }}{% endif %}"
+                                data-img="{% if person.image %}{{ person.image.url }}{% endif %}"
+                            >
+                                <td style="padding-left: 20px;">
+                                    <div class="d-flex align-items-center">
+                                        {% if person.image_front %}
+                                            <img src="{{ person.image_front.url }}" width="32" height="32" class="rounded-circle me-3" style="object-fit: cover;">
+                                        {% elif person.image %}
+                                            <img src="{{ person.image.url }}" width="32" height="32" class="rounded-circle me-3" style="object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded-circle me-3 bg-secondary d-flex justify-content-center align-items-center text-white" style="width:32px; height:32px; font-size:12px;">{{ person.name|make_list|first }}</div>
+                                        {% endif %}
+                                        <span class="text-white fw-medium">{{ person.name }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-secondary">{{ person.employee_id|default:"-" }}</td>
+                                <td>
+                                    {% if person.role == 'Employee' %}
+                                        <span class="badge" style="background: rgba(37,99,235,0.1); color: #60a5fa; border: 1px solid rgba(37,99,235,0.2);">Employee</span>
+                                    {% elif person.role == 'Student' %}
+                                        <span class="badge" style="background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2);">Student</span>
+                                    {% elif person.role == 'Visitor' %}
+                                        <span class="badge" style="background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2);">Visitor</span>
+                                    {% elif person.role == 'Blacklist' %}
+                                        <span class="badge" style="background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.2);">Blacklist</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ person.role }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-secondary">{{ person.department|default:"-" }}</td>
+                                <td class="text-secondary">{{ person.registered_on|date:"d M Y, h:i A"|default:"-" }}</td>
+                                <td><span class="text-success small"><i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>Active</span></td>
+                                <td class="text-end" style="padding-right: 20px;">
+                                    <button class="btn btn-sm text-secondary p-1" onclick="viewEmployee('{{ person.id }}')"><i class="bi bi-eye"></i></button>
+                                    <button class="btn btn-sm text-secondary p-1" onclick="editEmployee('{{ person.id }}')"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm text-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteModal{{ person.id }}"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                            
+
+                            
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">No recent registrations.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals must be outside the table -->
+{% for person in registered_faces|slice:":6" %}
+<div class="modal fade" id="deleteModal{{ person.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: #1a1d24; border-radius: 16px; border: 1px solid #2d3342;">
+            <div class="modal-body p-4 text-center">
+                <div class="mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 72px; height: 72px; border-radius: 50%; background-color: rgba(229, 62, 75, 0.1);">
+                    <i class="bi bi-trash" style="font-size: 2rem; color: #e53e4b;"></i>
+                </div>
+                <h4 class="fw-bold text-white mb-3">Delete Face?</h4>
+                <p class="mb-4" style="color: #8c93a1;">This action cannot be undone.</p>
+                <div class="d-flex justify-content-center gap-3 mt-4">
+                    <button type="button" class="btn flex-fill fw-semibold" style="background-color: #242a38; border: 1px solid #333a4d; color: #fff; border-radius: 8px;" data-bs-dismiss="modal">Cancel</button>
+                    <form method="post" action="{% url 'delete_face' person.id %}" class="flex-fill m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn fw-semibold w-100" style="background-color: #e53e4b; color: #fff; border-radius: 8px;">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="background-color: #1a1d24; border-radius: 16px; border: 1px solid #2d3342;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-white">Employee Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <img id="view_img" src="" class="img-fluid rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover; border: 3px solid #2d3342; display: none;">
+                        <h5 class="text-white fw-bold" id="view_name">Name</h5>
+                        <div class="badge" style="background: rgba(37,99,235,0.1); color: #60a5fa; border: 1px solid rgba(37,99,235,0.2);" id="view_role">Role</div>
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table table-borderless text-white mb-0">
+                            <tbody>
+                                <tr><th class="text-muted" style="width: 40%;">Employee ID</th><td id="view_empid">-</td></tr>
+                                <tr><th class="text-muted">Department</th><td id="view_dept">-</td></tr>
+                                <tr><th class="text-muted">Designation</th><td id="view_desig">-</td></tr>
+                                <tr><th class="text-muted">Gender</th><td id="view_gender">-</td></tr>
+                                <tr><th class="text-muted">Phone</th><td id="view_phone">-</td></tr>
+                                <tr><th class="text-muted">Email</th><td id="view_email">-</td></tr>
+                                <tr><th class="text-muted">Date of Birth</th><td id="view_dob">-</td></tr>
+                                <tr><th class="text-muted">Registered On</th><td id="view_registered">-</td></tr>
+                                <tr><th class="text-muted">Address</th><td id="view_address">-</td></tr>
+                                <tr><th class="text-muted">Notes</th><td id="view_notes">-</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function viewEmployee(id) {
+        const row = document.getElementById('emp-row-' + id);
+        if(!row) return;
+        
+        document.getElementById('view_name').textContent = row.dataset.name;
+        document.getElementById('view_role').textContent = row.dataset.role;
+        document.getElementById('view_empid').textContent = row.dataset.empid || '-';
+        document.getElementById('view_dept').textContent = row.dataset.dept || '-';
+        document.getElementById('view_desig').textContent = row.dataset.desig || '-';
+        document.getElementById('view_gender').textContent = row.dataset.gender || '-';
+        document.getElementById('view_phone').textContent = row.dataset.phone || '-';
+        document.getElementById('view_email').textContent = row.dataset.email || '-';
+        document.getElementById('view_dob').textContent = row.dataset.dob || '-';
+        document.getElementById('view_address').textContent = row.dataset.address || '-';
+        document.getElementById('view_notes').textContent = row.dataset.notes || '-';
+        document.getElementById('view_registered').textContent = row.dataset.registered || '-';
+        
+        const img = document.getElementById('view_img');
+        const imgUrl = row.dataset.imgFront || row.dataset.img;
+        if(imgUrl) {
+            img.src = imgUrl;
+            img.style.display = 'inline-block';
+        } else {
+            img.src = '';
+            img.style.display = 'none';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('viewModal'));
+        modal.show();
+    }
+
+    function editEmployee(id) {
+        const row = document.getElementById('emp-row-' + id);
+        if(!row) return;
+        
+        document.getElementById('employee_id_pk').value = row.dataset.id;
+        document.getElementById('input_name').value = row.dataset.name;
+        document.getElementById('input_emp_id').value = row.dataset.empid;
+        document.getElementById('input_dept').value = row.dataset.dept;
+        document.getElementById('input_desig').value = row.dataset.desig;
+        document.getElementById('input_phone').value = row.dataset.phone;
+        document.getElementById('input_email').value = row.dataset.email;
+        document.getElementById('input_dob').value = row.dataset.dob;
+        document.getElementById('input_gender').value = row.dataset.gender || 'Male';
+        document.getElementById('input_address').value = row.dataset.address;
+        document.getElementById('input_notes').value = row.dataset.notes;
+        
+        const role = row.dataset.role || 'Employee';
+        const buttons = document.querySelectorAll('.type-btn');
+        let matched = false;
+        buttons.forEach(b => {
+            if(b.textContent.trim() === role) {
+                setRole(b, role);
+                matched = true;
+            }
+        });
+        if(!matched && buttons.length > 0) setRole(buttons[0], 'Employee');
+        
+        document.getElementById('submit_btn_text').textContent = 'Update Details';
+        document.getElementById('submit_btn').classList.remove('btn-primary');
+        document.getElementById('submit_btn').classList.add('btn-warning');
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updatePreview();
+    }
+
+    let activeStream = null;
+    let currentGridIndex = 1;
+    let totalCaptured = 0;
+
+    // Real-time preview updates
+    const updatePreview = () => {
+        document.getElementById('preview_name').textContent = document.getElementById('input_name').value || '-';
+        document.getElementById('preview_emp_id').textContent = document.getElementById('input_emp_id').value || '-';
+        
+        const dept = document.getElementById('input_dept');
+        document.getElementById('preview_dept').textContent = dept.options[dept.selectedIndex]?.text || '-';
+        
+        document.getElementById('preview_desig').textContent = document.getElementById('input_desig').value || '-';
+        document.getElementById('preview_phone').textContent = document.getElementById('input_phone').value || '-';
+        document.getElementById('preview_email').textContent = document.getElementById('input_email').value || '-';
+    };
+
+    ['input_name', 'input_emp_id', 'input_desig', 'input_phone', 'input_email'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+    });
+    document.getElementById('input_dept').addEventListener('change', updatePreview);
+
+    function setRole(btn, role) {
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('person_role').value = role;
+        document.getElementById('preview_role').textContent = role;
+        document.getElementById('preview_type').textContent = role;
+    }
+
+    // Camera Init
+    async function initCamera() {
+        const video = document.getElementById('main_video');
+        try {
+            activeStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = activeStream;
+        } catch (err) {
+            console.error("Camera error:", err);
+            document.getElementById('main-viewfinder').innerHTML = '<div class="text-danger">Camera not available</div>';
+        }
+    }
+
+    // Start camera on load
+    initCamera();
+
+    // Ensure form is completely cleared on page load to prevent browser auto-fill bugs
+    window.addEventListener('load', () => {
+        const form = document.getElementById('registerForm');
+        if (form) form.reset();
+        clearAllImages();
+    });
+
+    function captureMainImage() {
+        const video = document.getElementById('main_video');
+        if(!video.srcObject) return;
+        
+        const canvas = document.getElementById('main_canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        
+        // Find next empty grid item
+        let found = false;
+        for(let i=1; i<=9; i++) {
+            const img = document.getElementById(`grid_img_${i}`);
+            if(!img.src || img.src === window.location.href) {
+                setGridImage(i, dataUrl);
+                found = true;
+                break;
+            }
+        }
+        
+        if(!found) {
+            alert("Maximum images reached. Please clear some images first.");
+        }
+    }
+
+    function setGridImage(index, dataUrl) {
+        const item = document.getElementById(`grid_item_${index}`);
+        const img = document.getElementById(`grid_img_${index}`);
+        const base64Input = document.getElementById(`base64_${index}`);
+        
+        img.src = dataUrl;
+        item.classList.add('has-image');
+        base64Input.value = dataUrl;
+        
+        // Map first 3 to front/right/left for backward compatibility with view logic if needed
+        if(index === 1) document.getElementById('base64_front').value = dataUrl;
+        if(index === 2) document.getElementById('base64_right').value = dataUrl;
+        if(index === 3) document.getElementById('base64_left').value = dataUrl;
+        
+        // Update avatar preview with the first captured image
+        if(index === 1 || !document.getElementById('preview_avatar').src) {
+            document.getElementById('preview_avatar').src = dataUrl;
+            document.getElementById('preview_avatar').style.display = 'block';
+            document.getElementById('preview_avatar_placeholder').style.display = 'none';
+        }
+        
+        updateCount();
+    }
+
+    function selectGridItem(index) {
+        // Trigger file upload if clicked on an item
+        document.getElementById(`file_${index}`).click();
+    }
+
+    function handleFileUpload(input, index) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                setGridImage(index, e.target.result);
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function clearAllImages() {
+        for(let i=1; i<=9; i++) {
+            document.getElementById(`grid_img_${i}`).src = '';
+            document.getElementById(`grid_item_${i}`).classList.remove('has-image');
+            document.getElementById(`base64_${i}`).value = '';
+        }
+        document.getElementById('base64_front').value = '';
+        document.getElementById('base64_right').value = '';
+        document.getElementById('base64_left').value = '';
+        
+        document.getElementById('preview_avatar').src = '';
+        document.getElementById('preview_avatar').style.display = 'none';
+        document.getElementById('preview_avatar_placeholder').style.display = 'flex';
+        
+        updateCount();
+    }
+    
+    function updateCount() {
+        let count = 0;
+        for(let i=1; i<=9; i++) {
+            if(document.getElementById(`grid_img_${i}`).src && document.getElementById(`grid_img_${i}`).src !== window.location.href) {
+                count++;
+            }
+        }
+        document.getElementById('img_count').textContent = count;
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if(activeStream) {
+            activeStream.getTracks().forEach(track => track.stop());
+        }
+    });
+
+    function filterTable() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('tbody tr[id^="emp-row-"]');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            if (text.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function toggleFullScreen() {
+        const videoContainer = document.getElementById('main-viewfinder');
+        if (!document.fullscreenElement) {
+            if (videoContainer.requestFullscreen) {
+                videoContainer.requestFullscreen();
+            } else if (videoContainer.webkitRequestFullscreen) {
+                videoContainer.webkitRequestFullscreen();
+            } else if (videoContainer.msRequestFullscreen) {
+                videoContainer.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    }
+</script>
+{% endblock %}

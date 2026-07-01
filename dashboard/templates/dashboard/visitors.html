@@ -1,0 +1,140 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Visitors - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-person-badge-fill me-2 text-primary"></i>Visitor Log</h2>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header-custom d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-people-fill me-2" style="color:var(--accent-cyan)"></i>
+                    Recent Visitors
+                </div>
+                <form class="d-flex gap-2 m-0" method="GET" action="{% url 'visitors' %}">
+                    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control form-control-sm" placeholder="Search visitor..." style="width: 200px;">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i></button>
+                </form>
+            </div>
+            <div class="card-body-custom p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Snapshot</th>
+                                <th>Name / Type</th>
+                                <th>Camera</th>
+                                <th>Detection Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for visitor in visitors %}
+                            <tr>
+                                <td style="width: 80px;">
+                                    {% if visitor.Snapshot %}
+                                        <img src="{{ visitor.Snapshot.url }}" alt="Face" style="width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--card-border)">
+                                    {% else %}
+                                        <div style="width:48px;height:48px;background:var(--input-bg);border-radius:8px;display:grid;place-items:center;color:var(--text-muted)">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong class="d-block" style="font-size:.95rem">{{ visitor.visitor_name }}</strong>
+                                    {% if visitor.visitor_name == "Unknown" %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25" style="font-size:.7rem">Unregistered</span>
+                                    {% else %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size:.7rem">Known Person</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span style="font-size:.85rem"><i class="bi bi-camera-video me-1"></i>{{ visitor.camera_name|default:"Main Camera" }}</span>
+                                </td>
+                                <td>
+                                    <div style="font-size:.9rem">{{ visitor.detection_time|date:"M d, Y" }}</div>
+                                    <div style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text-muted)">{{ visitor.detection_time|time:"H:i:s" }}</div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:.75rem"
+                                        onclick="showVisitorDetails(
+                                            '{{ visitor.visitor_name|escapejs }}', 
+                                            '{{ visitor.camera_name|default:"Main Camera"|escapejs }}', 
+                                            '{{ visitor.detection_time|date:"M d, Y H:i:s" }}', 
+                                            '{% if visitor.Snapshot %}{{ visitor.Snapshot.url }}{% else %}{% endif %}'
+                                        )">
+                                        View Details
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-person-slash d-block mb-2" style="font-size:2rem"></i>
+                                    No visitors detected recently.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Visitor Details Modal -->
+<div class="modal fade" id="visitorDetailsModal" tabindex="-1" aria-labelledby="visitorDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="visitorDetailsModalLabel"><i class="bi bi-person-bounding-box me-2 text-primary"></i>Visitor Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center pt-3">
+                <img id="modalVisitorImage" src="" alt="Visitor Snapshot" style="width: 100%; max-width: 250px; height: auto; border-radius: 8px; border: 1px solid var(--card-border); display: none; margin: 0 auto 20px auto;">
+                <div id="modalVisitorIcon" style="width: 150px; height: 150px; background: var(--input-bg); border-radius: 50%; display: grid; place-items: center; color: var(--text-muted); font-size: 4rem; margin: 0 auto 20px auto;">
+                    <i class="bi bi-person"></i>
+                </div>
+                
+                <h4 id="modalVisitorName" class="mb-1">Name</h4>
+                <p id="modalVisitorCamera" class="text-muted mb-1" style="font-size: 0.9rem;"><i class="bi bi-camera-video me-1"></i>Camera</p>
+                <p id="modalVisitorTime" class="text-muted" style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;"><i class="bi bi-clock me-1"></i>Time</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showVisitorDetails(name, camera, time, imageUrl) {
+    document.getElementById('modalVisitorName').textContent = name;
+    document.getElementById('modalVisitorCamera').innerHTML = `<i class="bi bi-camera-video me-1"></i>${camera}`;
+    document.getElementById('modalVisitorTime').innerHTML = `<i class="bi bi-clock me-1"></i>${time}`;
+    
+    const imgElement = document.getElementById('modalVisitorImage');
+    const iconElement = document.getElementById('modalVisitorIcon');
+    
+    if (imageUrl) {
+        imgElement.src = imageUrl;
+        imgElement.style.display = 'block';
+        iconElement.style.display = 'none';
+    } else {
+        imgElement.style.display = 'none';
+        iconElement.style.display = 'grid';
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('visitorDetailsModal'));
+    modal.show();
+}
+</script>
+
+{% endblock %}

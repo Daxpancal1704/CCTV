@@ -1,0 +1,167 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}User Profile - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h2>
+    <div class="header-actions">
+        <!-- Any header actions can go here -->
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80;">
+            {{ message }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <!-- Profile Card -->
+        <div class="card mb-4">
+            <div class="card-body-custom text-center py-5">
+                <div class="user-avatar mx-auto mb-4" style="width: 100px; height: 100px; font-size: 3rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
+                    {{ request.user.username|default:"SA"|slice:":2"|upper }}
+                </div>
+                <h4 class="fw-bold mb-1">{{ request.user.get_full_name|default:request.user.username }}</h4>
+                <p class="text-secondary mb-3">Administrator</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                    <span class="badge" style="background: var(--card-border);">Member since {{ request.user.date_joined|date:"M Y" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Details Card -->
+        <div class="card">
+            <div class="card-header-custom border-bottom" style="border-color: var(--card-border) !important;">
+                <h5 class="m-0"><i class="bi bi-info-circle me-2 text-primary"></i>User Details</h5>
+            </div>
+            <div class="card-body-custom p-4">
+                <div class="mb-3">
+                    <span class="text-secondary fw-bold d-block" style="font-size: 0.85rem; margin-bottom: 2px;">Username</span>
+                    <span style="font-size: 0.95rem; color: var(--text-primary);">{{ request.user.username }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-secondary fw-bold d-block" style="font-size: 0.85rem; margin-bottom: 2px;">Email Address</span>
+                    <span style="font-size: 0.95rem; color: var(--text-primary);">{{ request.user.email|default:"N/A" }}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-secondary fw-bold d-block" style="font-size: 0.85rem; margin-bottom: 2px;">Role / Status</span>
+                    <span style="font-size: 0.95rem; color: var(--text-primary);">{% if request.user.is_superuser %}Super Administrator{% else %}Staff Member{% endif %}</span>
+                </div>
+                <div class="mb-3">
+                    <span class="text-secondary fw-bold d-block" style="font-size: 0.85rem; margin-bottom: 2px;">Date Joined</span>
+                    <span style="font-size: 0.95rem; color: var(--text-primary);">{{ request.user.date_joined|date:"F d, Y, h:i A" }}</span>
+                </div>
+                <div>
+                    <span class="text-secondary fw-bold d-block" style="font-size: 0.85rem; margin-bottom: 2px;">Last Login</span>
+                    <span style="font-size: 0.95rem; color: var(--text-primary);">{{ request.user.last_login|date:"F d, Y, h:i A"|default:"N/A" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header-custom border-bottom" style="border-color: var(--card-border) !important;">
+                <h5 class="m-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Edit Details</h5>
+            </div>
+            <div class="card-body-custom p-4">
+                <form method="POST" action="{% url 'profile' %}">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Username</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" value="{{ request.user.username }}" disabled>
+                            <div class="form-text text-secondary" style="font-size: 0.75rem;">Username cannot be changed.</div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Email Address</label>
+                            <input type="email" name="email" class="form-control" value="{{ request.user.email }}" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end mt-3 pt-3 border-top" style="border-color: var(--card-border) !important;">
+                        <button type="reset" class="btn btn-outline-secondary me-2">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if request.user.is_superuser or request.user.is_staff %}
+<div class="row mt-4 mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header-custom border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--card-border) !important;">
+                <h5 class="m-0 text-white"><i class="bi bi-people-fill me-2 text-primary"></i>User Logins & Status</h5>
+                <span class="badge bg-primary">{{ active_users_count }} Online / {{ all_users|length }} Total</span>
+            </div>
+            <div class="card-body-custom p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-white">
+                        <thead class="text-muted">
+                            <tr>
+                                <th>Username</th>
+                                <th>Full Name</th>
+                                <th>Email Address</th>
+                                <th>Joined Date</th>
+                                <th>Last Login</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in all_users %}
+                            <tr>
+                                <td>{{ u.username }}</td>
+                                <td>{{ u.get_full_name|default:"--" }}</td>
+                                <td>{{ u.email|default:"--" }}</td>
+                                <td>{{ u.date_joined|date:"M d, Y" }}</td>
+                                <td>{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                                <td>
+                                    {% if u.id in active_user_ids %}
+                                        <span class="badge bg-success bg-opacity-25 text-success border border-success"><span class="online-dot me-1" style="background:#22c55e; width:6px; height:6px; display:inline-block; border-radius:50%;"></span> Online</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary">Offline</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .form-control:focus {
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+</style>
+{% endblock %}

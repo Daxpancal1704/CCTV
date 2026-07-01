@@ -1,0 +1,1959 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Live Monitoring - Smart CCTV{% endblock %}
+{% block topbar_title %}Live Monitoring{% endblock %}
+{% block topbar_subtitle %}Home / Live Monitoring{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Add specific styles for live monitoring layout */
+    :root {
+        --bg-panel: #111827;
+        /* Matches dashboard card bg */
+        --border-color: #1E293B;
+        --accent-blue: #2563EB;
+        --text-muted: #64748B;
+        --success: #10B981;
+        --danger: #EF4444;
+    }
+
+    .lm-container {
+        padding: 0 24px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: calc(100vh - 72px);
+        overflow: hidden;
+    }
+
+    .lm-tabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .lm-tab {
+        padding: 6px 16px;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-weight: 500;
+        border-radius: 6px;
+        font-size: 14px;
+        background: transparent;
+        border: none;
+    }
+
+    .lm-tab.active {
+        color: #fff;
+        background: var(--accent-blue);
+    }
+
+    .lm-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: transparent;
+    }
+
+    .lm-grid-controls {
+        display: flex;
+        gap: 4px;
+    }
+
+    .grid-btn {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        border-radius: 6px;
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .grid-btn.active {
+        background: var(--accent-blue);
+        color: #fff;
+        border-color: var(--accent-blue);
+    }
+
+    .lm-filters {
+        display: flex;
+        gap: 12px;
+    }
+
+    .lm-select {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        outline: none;
+    }
+
+    .btn-add-view {
+        background: var(--accent-blue);
+        color: #fff;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .lm-main-layout {
+        display: flex;
+        gap: 20px;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .lm-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+        padding-right: 4px;
+        /* for scrollbar */
+    }
+
+    .lm-right {
+        width: 320px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .video-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .video-cell {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        aspect-ratio: 16/10;
+    }
+
+    .video-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .status-live {
+        color: var(--success);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-live::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background: var(--success);
+        border-radius: 50%;
+    }
+
+    .video-content {
+        flex: 1;
+        position: relative;
+        background: #000;
+        overflow: hidden;
+    }
+
+    .video-feed {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-overlay-time {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: monospace;
+    }
+
+    .video-overlay-stats {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #ddd;
+    }
+
+    .stat-good {
+        color: var(--success);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .stat-good i {
+        font-size: 14px;
+    }
+
+    .video-controls {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 16px;
+        background: var(--bg-panel);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .video-controls-left,
+    .video-controls-right {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+    }
+
+    .video-controls i {
+        color: #888;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    .video-controls i:hover {
+        color: #fff;
+    }
+
+    .rec-status {
+        color: var(--danger) !important;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    /* Bottom Panels */
+    .panel {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    .panel-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .timeline-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .timeline-date-selector {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .timeline-date-selector select {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    .timeline-date-selector i {
+        cursor: pointer;
+        color: #888;
+    }
+
+    .timeline-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 12px;
+    }
+
+    .timeline-label {
+        width: 120px;
+        color: var(--text-muted);
+    }
+
+    .timeline-bar-wrapper {
+        flex: 1;
+        height: 8px;
+        background: #1E293B;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .timeline-segment {
+        position: absolute;
+        height: 100%;
+        border-radius: 4px;
+    }
+
+    .ts-cont {
+        background: var(--success);
+    }
+
+    .ts-mot {
+        background: #F59E0B;
+    }
+
+    .ts-ai {
+        background: var(--danger);
+    }
+
+    .ts-man {
+        background: var(--accent-blue);
+    }
+
+    .timeline-legend {
+        display: flex;
+        gap: 16px;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 16px;
+        justify-content: center;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 6px;
+        border-radius: 3px;
+    }
+
+    .time-ticks {
+        display: flex;
+        justify-content: space-between;
+        margin-left: 136px;
+        /* offset label width */
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+
+    .bottom-cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 24px;
+        font-size: 12px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 6px;
+    }
+
+    .info-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .info-val {
+        font-size: 13px;
+        color: #fff;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .summary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+    }
+
+    .summary-item .left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #ddd;
+    }
+
+    .summary-item i {
+        color: var(--accent-blue);
+        width: 24px;
+        height: 24px;
+        background: rgba(37, 99, 235, 0.1);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .summary-val {
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .action-btn {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+
+    .action-btn:hover {
+        background: #1E293B;
+    }
+
+    .action-btn i.red {
+        color: var(--danger);
+    }
+
+    .action-btn i.blue {
+        color: var(--accent-blue);
+    }
+
+    .action-btn i.green {
+        color: var(--success);
+    }
+
+    .action-btn i.purple {
+        color: #8B5CF6;
+    }
+
+    /* Right Sidebar styling */
+    .r-panel {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .r-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+        font-weight: 600;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .r-body {
+        padding: 16px;
+    }
+
+    .r-cam-select {
+        width: 100%;
+        background: #000;
+        border: 1px solid var(--border-color);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 13px;
+        outline: none;
+    }
+
+    .r-cam-preview {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+    }
+
+    .r-stats-table {
+        width: 100%;
+        font-size: 12px;
+    }
+
+    .r-stats-table td {
+        padding: 4px 0;
+    }
+
+    .r-stats-table td:first-child {
+        color: var(--text-muted);
+    }
+
+    .r-stats-table td:last-child {
+        text-align: right;
+        font-weight: 500;
+    }
+
+    .status-on {
+        color: var(--success);
+    }
+
+    .status-rec {
+        color: var(--danger);
+        font-weight: bold;
+    }
+
+    .ctrl-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .ctrl-btn {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #aaa;
+        cursor: pointer;
+    }
+
+    .ctrl-btn:hover {
+        background: #1E293B;
+        color: #fff;
+    }
+
+    .ctrl-btn i {
+        font-size: 16px;
+    }
+
+    .ctrl-btn i.red {
+        color: var(--danger);
+    }
+
+    .ctrl-btn i.green {
+        color: var(--success);
+    }
+
+    .ptz-circle {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: #0A0F18;
+        border: 1px solid var(--border-color);
+        margin: 0 auto 20px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .ptz-btn {
+        position: absolute;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .ptz-btn:hover {
+        color: #fff;
+    }
+
+    .ptz-up {
+        top: 15px;
+    }
+
+    .ptz-down {
+        bottom: 15px;
+    }
+
+    .ptz-left {
+        left: 15px;
+    }
+
+    .ptz-right {
+        right: 15px;
+    }
+
+    .ptz-home {
+        color: #fff;
+        font-size: 22px;
+    }
+
+    .zoom-slider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .zoom-slider input[type=range] {
+        flex: 1;
+        accent-color: var(--accent-blue);
+    }
+
+    .preset-controls {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .preset-controls select {
+        flex: 1;
+        background: #000;
+        border: 1px solid var(--border-color);
+        color: #fff;
+        border-radius: 6px;
+        font-size: 12px;
+        padding: 6px;
+    }
+
+    .preset-btn {
+        background: transparent;
+        border: 1px solid var(--accent-blue);
+        color: var(--accent-blue);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .preset-btn:hover {
+        background: rgba(37, 99, 235, 0.1);
+    }
+
+    .pill-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .pill-btn {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        color: #ddd;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+
+    .pill-btn:hover {
+        background: #1E293B;
+    }
+
+    .pill-btn i {
+        color: var(--text-muted);
+    }
+
+    .pill-btn.active {
+        background: rgba(37, 99, 235, 0.15) !important;
+        border-color: var(--accent-blue) !important;
+        color: #fff !important;
+    }
+
+    .pill-btn.active i {
+        color: var(--accent-blue) !important;
+    }
+
+    .r-header {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .r-header:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Scrollbar */
+    .lm-left::-webkit-scrollbar,
+    .lm-right::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .lm-left::-webkit-scrollbar-track,
+    .lm-right::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .lm-left::-webkit-scrollbar-thumb,
+    .lm-right::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3);
+        border-radius: 4px;
+    }
+
+    /* Blinking and Zooming styles */
+    @keyframes blinker {
+        50% {
+            opacity: 0;
+        }
+    }
+
+    .blinking-rec {
+        animation: blinker 1s linear infinite;
+        color: var(--danger) !important;
+    }
+
+    .digital-zoomed {
+        transition: transform 0.1s ease-out;
+        z-index: 100;
+        cursor: move;
+    }
+
+    .video-content.overflow-hidden {
+        overflow: hidden;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 9999;
+    }
+
+    .lm-toast {
+        background: #1F2937;
+        border: 1px solid #374151;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        transform: translateY(20px);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+
+    .lm-toast.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    .lm-toast-success {
+        border-left: 4px solid var(--success);
+    }
+
+    .lm-toast-danger {
+        border-left: 4px solid var(--danger);
+    }
+
+    .lm-toast-info {
+        border-left: 4px solid var(--accent-blue);
+    }
+
+    .lm-toast-warning {
+        border-left: 4px solid var(--accent-amber);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lm-container">
+
+    <!-- Tabs -->
+    <div class="lm-tabs">
+        <button class="lm-tab active" onclick="switchView('live', this)">Live View</button>
+        <button class="lm-tab" onclick="switchView('map', this)">Map View</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="lm-toolbar">
+        <div class="lm-grid-controls">
+            <button class="grid-btn" onclick="changeGrid(1, this)"><i class="bi bi-square"></i></button>
+            <button class="grid-btn active" onclick="changeGrid(2, this)"><i class="bi bi-grid"></i> 4</button>
+            <button class="grid-btn" onclick="changeGrid(3, this)"><i class="bi bi-grid-3x3"></i> 9</button>
+            <button class="grid-btn" onclick="changeGrid(4, this)"><i class="bi bi-grid-3x3-gap"></i> 16</button>
+            <button class="grid-btn"><i class="bi bi-gear"></i> Custom</button>
+        </div>
+
+        <div class="lm-filters">
+            <select class="lm-select" id="groupFilter" onchange="applyFilters()">
+                <option value="all">All Groups</option>
+                {% for group in groups %}
+                <option value="{{ group }}">{{ group }}</option>
+                {% endfor %}
+            </select>
+            <select class="lm-select" id="cameraFilter" onchange="applyFilters()">
+                <option value="all">All Cameras</option>
+                {% for camera in cameras %}
+                <option value="{{ camera.camera_no }}">{{ camera.name }}</option>
+                {% endfor %}
+            </select>
+            <a href="{% url 'cameras' %}" class="btn-add-view text-decoration-none"><i class="bi bi-plus"></i> Add
+                View</a>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="lm-main-layout">
+
+        <!-- Left Area -->
+        <div class="lm-left">
+
+            <!-- Video Grid 2x2 -->
+            <div class="video-grid">
+                {% for camera in cameras %}
+                <div class="video-cell" data-group="{{ camera.group }}" data-cam-no="{{ camera.camera_no }}">
+                    <div class="video-header">
+                        <span>{{ forloop.counter }}. {{ camera.name|default:"Camera Area" }}</span>
+                        <div class="status-live">Live</div>
+                    </div>
+
+                    <div class="video-content overflow-hidden">
+                        <!-- We use actual stream if it exists or placeholder -->
+                        {% if camera.id %}
+                        <img src="{% url 'video_feed' camera.id %}" class="video-feed"
+                            id="cam-stream-{{ camera.camera_no }}">
+                        {% else %}
+                        <img src="{% static 'images/placeholder-feed.jpg' %}" onerror="this.src=''" class="video-feed"
+                            style="background:#111">
+                        {% endif %}
+
+                        <div class="video-overlay-time" id="time-overlay-{{ camera.camera_no }}">
+                            29-06-2026 11:25:30 AM
+                        </div>
+                        <div class="video-overlay-stats">
+                            <span>FPS: 25 &nbsp;&nbsp; Bitrate: {{ 2048|add:forloop.counter0 }} kbps</span>
+                            <div class="stat-good"><i class="bi bi-bar-chart-fill"></i> Good</div>
+                        </div>
+                    </div>
+
+                    <div class="video-controls">
+                        <div class="video-controls-left">
+                            <i class="bi bi-camera" style="cursor:pointer;"
+                                onclick="captureBackendSnapshot('{{ camera.id }}', '{{ camera.name|escapejs }}')"></i>
+                            <i class="bi bi-camera-video" style="cursor:pointer;"
+                                onclick="toggleStream(this, 'cam-stream-{{ camera.camera_no }}')"></i>
+                            <i class="bi bi-mic" style="cursor:pointer;"
+                                onclick="toggleTalk(this, '{{ camera.name|escapejs }}')"></i>
+                            <i class="bi bi-volume-up" style="cursor:pointer;" onclick="toggleMute(this)"></i>
+                        </div>
+                        <div class="video-controls-right">
+                            <i class="bi bi-arrows-angle-expand" style="cursor:pointer;"
+                                onclick="toggleGridSpan('cam-stream-{{ camera.camera_no }}', this)"></i>
+                            <i class="bi bi-zoom-in" style="cursor:pointer;"
+                                onclick="toggleDigitalZoom('cam-stream-{{ camera.camera_no }}', this)"></i>
+                            <i class="bi bi-fullscreen" style="cursor:pointer;"
+                                onclick="makeFullscreen('cam-stream-{{ camera.camera_no }}')"></i>
+                            <div class="rec-status" style="cursor:pointer;"
+                                onclick="toggleRecord(this, 'cam-stream-{{ camera.camera_no }}', '{{ camera.name|escapejs }}', '{{ camera.camera_no }}')">
+                                <i class="bi bi-record-circle"></i> REC
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <!-- Mockup cells if no cameras exist in DB -->
+                <div class="video-cell">
+                    <div class="video-header"><span>1. Main Entrance</span>
+                        <div class="status-live">Live</div>
+                    </div>
+                    <div class="video-content">
+                        <div style="background:#111; width:100%; height:100%"></div>
+                        <div class="video-overlay-time">29-06-2026 11:25:30 AM</div>
+                        <div class="video-overlay-stats"><span>FPS: 25 &nbsp;&nbsp; Bitrate: 2048 kbps</span>
+                            <div class="stat-good"><i class="bi bi-bar-chart-fill"></i> Good</div>
+                        </div>
+                    </div>
+                    <div class="video-controls">
+                        <div class="video-controls-left"><i class="bi bi-camera"></i><i
+                                class="bi bi-camera-video"></i><i class="bi bi-mic"></i><i class="bi bi-volume-up"></i>
+                        </div>
+                        <div class="video-controls-right"><i class="bi bi-arrows-angle-expand"></i><i
+                                class="bi bi-zoom-in"></i><i class="bi bi-fullscreen"></i>
+                            <div class="rec-status"><i class="bi bi-record-circle"></i> REC</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Map View Container (Hidden by default) -->
+            <div id="mapViewContainer"
+                style="display: none; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; flex: 1; min-height: 450px; position: relative;">
+                <h5 style="font-size: 14px; font-weight: 600; margin-bottom: 20px;"><i
+                        class="bi bi-geo-alt-fill text-primary"></i> Interactive Floor Plan Map</h5>
+
+                <div class="floor-plan-schematic"
+                    style="position: relative; width: 100%; height: 350px; border: 2px dashed var(--border-color); border-radius: 8px; background: rgba(10, 15, 24, 0.6); overflow: hidden;">
+                    <div
+                        style="position: absolute; border: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); top: 0; left: 0; width: 30%; height: 40%; display: grid; place-items: center; font-size: 12px; color: var(--text-muted);">
+                        Conference Room</div>
+                    <div
+                        style="position: absolute; border: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); top: 0; left: 30%; width: 40%; height: 40%; display: grid; place-items: center; font-size: 12px; color: var(--text-muted);">
+                        Main Office Area</div>
+                    <div
+                        style="position: absolute; border: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); top: 0; left: 70%; width: 30%; height: 40%; display: grid; place-items: center; font-size: 12px; color: var(--text-muted);">
+                        Server Room</div>
+                    <div
+                        style="position: absolute; border: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05); top: 40%; left: 0; width: 50%; height: 60%; display: grid; place-items: center; font-size: 12px; color: var(--text-muted);">
+                        Lobby / Reception</div>
+                    <div
+                        style="position: absolute; border: 1px solid var(--border-color); background: rgba(239, 68, 68, 0.05); top: 40%; left: 50%; width: 50%; height: 60%; display: grid; place-items: center; font-size: 12px; color: var(--text-muted);">
+                        Parking Area</div>
+
+                    {% for camera in cameras %}
+                    <div class="camera-marker"
+                        onclick="showMapPreview('{{ camera.id }}', '{{ camera.name|escapejs }}', event)"
+                        style="position: absolute; top: {% if forloop.counter == 1 %}75%{% elif forloop.counter == 2 %}50%{% elif forloop.counter == 3 %}20%{% else %}70%{% endif %}; left: {% if forloop.counter == 1 %}25%{% elif forloop.counter == 2 %}40%{% elif forloop.counter == 3 %}50%{% else %}75%{% endif %}; width: 32px; height: 32px; border-radius: 50%; background: var(--accent-blue); color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 10px var(--accent-blue); z-index: 200;">
+                        <i class="bi bi-camera-video-fill" style="font-size:12px"></i>
+                        <span
+                            style="position: absolute; top: 36px; left: 50%; transform: translateX(-50%); font-size: 10px; background: rgba(0,0,0,0.8); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">{{ forloop.counter }}. {{ camera.name }}</span>
+                    </div>
+                    {% endfor %}
+
+                    <div id="mapPopover"
+                        style="display: none; position: absolute; width: 220px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-panel); box-shadow: 0 10px 25px rgba(0,0,0,0.7); z-index: 300; padding: 6px;">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; padding: 2px 4px;">
+                            <span id="mapPopoverTitle" style="font-size:11px; font-weight:600;">Feed Preview</span>
+                            <i class="bi bi-x" onclick="closeMapPopover()" style="cursor:pointer; font-size: 14px;"></i>
+                        </div>
+                        <img id="mapPopoverImg" src=""
+                            style="width: 100%; height: 130px; object-fit: cover; border-radius: 4px;">
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Bottom 3 Columns -->
+            <div class="bottom-cols">
+                <!-- Stream Info -->
+                <div class="panel">
+                    <div class="panel-title">Stream Information</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Protocol</span>
+                            <span class="info-val" id="streamProtocol">RTSP</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Resolution</span>
+                            <span class="info-val" id="streamResolution">1920 x 1080</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Stream Type</span>
+                            <span class="info-val" id="streamType">Main Stream</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Frame Rate</span>
+                            <span class="info-val" id="streamFPS">25 FPS</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Bitrate</span>
+                            <span class="info-val" id="streamBitrate">2048 kbps</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Stream Quality</span>
+                            <span class="info-val" id="streamQuality">
+                                <div class="legend-color ts-cont"
+                                    style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div> Good
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Today's Summary -->
+                <div class="panel">
+                    <div class="panel-title">Today's Summary <span
+                            style="font-size:12px;color:var(--text-muted);font-weight:normal">(Live)</span></div>
+                    <div class="summary-list">
+                        <div class="summary-item">
+                            <div class="left"><i class="bi bi-person"></i> People Detected</div>
+                            <div class="summary-val">{{ visitor_count }}</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="left"><i class="bi bi-car-front"></i> Vehicles Detected</div>
+                            <div class="summary-val">{{ motion_events_count|default:"0" }}</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="left"><i class="bi bi-cpu"></i> AI Events</div>
+                            <div class="summary-val">{{ ai_events_count }}</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="left"><i class="bi bi-person-bounding-box"></i> Unknown Faces</div>
+                            <div class="summary-val">{{ unknown_count }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="panel">
+                    <div class="panel-title">Quick Actions</div>
+                    <div class="quick-actions-grid">
+                        <button class="action-btn" onclick="startAllRecording()"><i class="bi bi-record-circle red"></i>
+                            Start All Recording</button>
+                        <button class="action-btn" onclick="stopAllRecording()"><i class="bi bi-stop-circle red"></i>
+                            Stop All Recording</button>
+                        <button class="action-btn" onclick="quickDownloadVideo()"><i class="bi bi-download green"></i>
+                            Download Video</button>
+                        <button class="action-btn" onclick="takeAllSnapshots()"><i class="bi bi-camera purple"></i> Take
+                            Snapshot</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Sidebar Area -->
+        <div class="lm-right">
+
+            <!-- Camera Controls -->
+            <div class="r-panel">
+                <div class="r-header">Camera Controls <i class="bi bi-chevron-up"></i></div>
+                <div class="r-body">
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">Selected Camera</div>
+                    <select class="r-cam-select" id="rightCamSelect" onchange="updateRightCamera()">
+                        {% for camera in cameras %}
+                        <option value="{% url 'video_feed' camera.id %}" data-id="{{ camera.id }}"
+                            data-name="{{ camera.name }}" data-cam-no="{{ camera.camera_no }}"
+                            data-type="{{ camera.camera_type }}" data-fps="{{ camera.live_fps|default:" 25" }}"
+                            data-bitrate="{{ camera.bitrate_kbps|default:" 2048" }}"
+                            data-quality="{% if camera.is_online %}Good{% else %}Offline{% endif %}">{{ forloop.counter }}. {{ camera.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <img src="{% if cameras %}{% url 'video_feed' cameras.0.id %}{% else %}{% static 'images/placeholder-feed.jpg' %}{% endif %}"
+                        onerror="this.src=''" class="r-cam-preview" id="rightCamPreview" style="background:#111">
+
+                    <table class="r-stats-table">
+                        <tr>
+                            <td>Status:</td>
+                            <td class="status-on" id="rightCamStatus">Online</td>
+                        </tr>
+                        <tr>
+                            <td>Resolution:</td>
+                            <td id="rightCamResolution">1920 x 1080</td>
+                        </tr>
+                        <tr>
+                            <td>FPS:</td>
+                            <td id="rightCamFPS">25</td>
+                        </tr>
+                        <tr>
+                            <td>Bitrate:</td>
+                            <td id="rightCamBitrate">2048 kbps</td>
+                        </tr>
+                        <tr>
+                            <td>Recording:</td>
+                            <td class="status-rec" id="rightCamRecording"><i class="bi bi-record-circle"></i> REC</td>
+                        </tr>
+                        <tr>
+                            <td>Audio:</td>
+                            <td class="status-on" id="rightCamAudio">On</td>
+                        </tr>
+                    </table>
+
+                    <div class="ctrl-grid">
+                        <button class="ctrl-btn" onclick="rightFullscreen()"><i class="bi bi-arrows-fullscreen"></i>
+                            Full Screen</button>
+                        <button class="ctrl-btn" onclick="toggleDigitalZoom('rightCamPreview', this)"><i
+                                class="bi bi-zoom-in"></i> Digital Zoom</button>
+                        <button class="ctrl-btn" onclick="rightSnapshot()"><i class="bi bi-camera"></i>
+                            Snapshot</button>
+                        <button class="ctrl-btn" onclick="toggleRightRecord(this)"><i class="bi bi-record-circle"></i>
+                            Record</button>
+                        <button class="ctrl-btn" onclick="toggleRightAudio(this)"><i class="bi bi-volume-up"></i> Audio
+                            On</button>
+                        <button class="ctrl-btn" onclick="toggleRightTalk(this)"><i class="bi bi-mic"></i> Talk</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PTZ Controls -->
+            <div class="r-panel">
+                <div class="r-header">PTZ Controls <i class="bi bi-chevron-up"></i></div>
+                <div class="r-body">
+                    <div class="ptz-circle">
+                        <button class="ptz-btn ptz-up"><i class="bi bi-caret-up-fill"></i></button>
+                        <button class="ptz-btn ptz-down"><i class="bi bi-caret-down-fill"></i></button>
+                        <button class="ptz-btn ptz-left"><i class="bi bi-caret-left-fill"></i></button>
+                        <button class="ptz-btn ptz-right"><i class="bi bi-caret-right-fill"></i></button>
+                        <button class="ptz-btn ptz-home"><i class="bi bi-house-door-fill"></i></button>
+                    </div>
+
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">Zoom</div>
+                    <div class="zoom-slider">
+                        <i class="bi bi-dash-circle"></i>
+                        <input type="range" min="0" max="100" value="30">
+                        <i class="bi bi-plus-circle"></i>
+                    </div>
+
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">Presets</div>
+                    <div class="preset-controls">
+                        <select id="presetSelect"
+                            style="background: #000; border: 1px solid var(--border-color); color: #fff; border-radius: 4px; padding: 4px 8px; outline: none; font-size: 12px;">
+                            <option value="">Select Preset</option>
+                            <option value="1">Preset 1 (Entrance)</option>
+                            <option value="2">Preset 2 (Lobby View)</option>
+                            <option value="3">Preset 3 (Office Area)</option>
+                            <option value="4">Preset 4 (Parking Spot)</option>
+                        </select>
+                        <button class="preset-btn" id="presetSetBtn">Set</button>
+                        <button class="preset-btn" id="presetGoBtn">Go</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- More Options -->
+            <div class="r-panel">
+                <div class="r-header">More Options <i class="bi bi-chevron-up"></i></div>
+                <div class="r-body">
+                    <div class="pill-grid">
+                        <button class="pill-btn" id="optStreamInfo"><i class="bi bi-info-circle"></i> Stream
+                            Info</button>
+                        <button class="pill-btn" id="optCameraHealth"><i class="bi bi-heart-pulse"></i> Camera
+                            Health</button>
+                        <button class="pill-btn" id="optMotionDetection"><i class="bi bi-person-walking"></i> Motion
+                            Detection</button>
+                        <button class="pill-btn" id="optAiDetection"><i class="bi bi-cpu"></i> AI Detection</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Time overlay updater
+    function updateClocks() {
+        const now = new Date();
+        // Format: 29-06-2026 11:25:30 AM
+        const dStr = String(now.getDate()).padStart(2, '0');
+        const mStr = String(now.getMonth() + 1).padStart(2, '0');
+        const yStr = now.getFullYear();
+        let hrs = now.getHours();
+        const ampm = hrs >= 12 ? 'PM' : 'AM';
+        hrs = hrs % 12;
+        hrs = hrs ? hrs : 12;
+        const hStr = String(hrs).padStart(2, '0');
+        const minStr = String(now.getMinutes()).padStart(2, '0');
+        const secStr = String(now.getSeconds()).padStart(2, '0');
+
+        const formatted = `${dStr}-${mStr}-${yStr} ${hStr}:${minStr}:${secStr} ${ampm}`;
+
+        document.querySelectorAll('[id^="time-overlay-"]').forEach(el => {
+            el.textContent = formatted;
+        });
+    }
+    setInterval(updateClocks, 1000);
+    updateClocks();
+
+    function makeFullscreen(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.requestFullscreen) {
+            el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) { /* Safari */
+            el.webkitRequestFullscreen();
+        }
+    }
+
+    // Change Grid Layout
+    function changeGrid(cols, btn) {
+        // Update active button
+        document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update grid columns
+        const grid = document.querySelector('.video-grid');
+        if (grid) {
+            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        }
+    }
+
+    // Snapshot
+    function takeSnapshot(imgId, camName) {
+        const img = document.getElementById(imgId);
+        if (!img) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 640;
+        canvas.height = img.naturalHeight || img.height || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const link = document.createElement('a');
+        link.download = `snapshot_${camName}_${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    // Toggle Mute
+    function toggleMute(icon) {
+        const isMuted = icon.classList.contains('bi-volume-up');
+        if (isMuted) {
+            icon.classList.remove('bi-volume-up');
+            icon.classList.add('bi-volume-mute');
+            icon.style.color = 'var(--danger)';
+            showToast("Audio muted", "info");
+        } else {
+            icon.classList.remove('bi-volume-mute');
+            icon.classList.add('bi-volume-up');
+            icon.style.color = '';
+            showToast("Audio unmuted", "info");
+        }
+        updateRightCamera();
+    }
+
+    const activeRecorders = {};
+
+    // Start client-side recording using canvas & MediaRecorder
+    function startRecording(imgId, camName, camNo) {
+        const img = document.getElementById(imgId);
+        if (!img) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 640;
+        canvas.height = img.naturalHeight || img.height || 480;
+        const ctx = canvas.getContext('2d');
+
+        // Draw loop at 25 FPS
+        const intervalId = setInterval(() => {
+            if (img.style.opacity !== '0.1') {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ef4444';
+                ctx.font = '24px Inter, sans-serif';
+                ctx.fillText('Camera Feed Paused', canvas.width / 2 - 110, canvas.height / 2);
+            }
+        }, 1000 / 25);
+
+        const stream = canvas.captureStream(25);
+        let options = { mimeType: 'video/webm;codecs=vp9' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = { mimeType: 'video/webm;codecs=vp8' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/webm' };
+            }
+        }
+
+        const chunks = [];
+        const mediaRecorder = new MediaRecorder(stream, options);
+
+        mediaRecorder.ondataavailable = function (e) {
+            if (e.data && e.data.size > 0) {
+                chunks.push(e.data);
+            }
+        };
+
+        mediaRecorder.onstop = function () {
+            clearInterval(intervalId);
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `recording_${camName.replace(/\s+/g, '_')}_${new Date().getTime()}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 100);
+            showToast(`Recording downloaded for ${camName}!`, "success");
+        };
+
+        mediaRecorder.start(100);
+        activeRecorders[camNo] = {
+            recorder: mediaRecorder,
+            intervalId: intervalId
+        };
+    }
+
+    function stopRecording(camNo) {
+        if (activeRecorders[camNo]) {
+            activeRecorders[camNo].recorder.stop();
+            delete activeRecorders[camNo];
+        }
+    }
+
+    // Toggle Record Status
+    function toggleRecord(el, imgId, camName, camNo) {
+        const icon = el.querySelector('i');
+        if (el.classList.contains('active-rec')) {
+            el.classList.remove('active-rec');
+            el.style.color = '';
+            icon.classList.remove('blinking-rec');
+            stopRecording(camNo);
+        } else {
+            el.classList.add('active-rec');
+            el.style.color = 'var(--danger)';
+            icon.classList.add('blinking-rec');
+            startRecording(imgId, camName, camNo);
+            showToast(`Recording started for ${camName}`, "danger");
+        }
+        updateRightCamera();
+    }
+
+    // Toggle Stream Video
+    function toggleStream(icon, imgId) {
+        const img = document.getElementById(imgId);
+        if (!img) return;
+        if (img.style.opacity === '0.1') {
+            img.style.opacity = '1';
+            icon.classList.remove('text-danger');
+            showToast("Video feed resumed", "info");
+        } else {
+            img.style.opacity = '0.1';
+            icon.classList.add('text-danger');
+            showToast("Video feed paused", "warning");
+        }
+    }
+
+    // Toggle Talk (Microphone)
+    function toggleTalk(icon, camName) {
+        if (icon.classList.contains('text-success')) {
+            icon.classList.remove('text-success');
+            showToast(`Two-way talk disabled for ${camName}`, "info");
+        } else {
+            icon.classList.add('text-success');
+            showToast(`Two-way talk enabled for ${camName}. Speak now.`, "success");
+        }
+        updateRightCamera();
+    }
+
+    // Grid span utility
+    function toggleGridSpan(imgId, icon) {
+        const cell = document.getElementById(imgId).closest('.video-cell');
+        if (cell.style.gridColumn === 'span 2') {
+            cell.style.gridColumn = '';
+            cell.style.gridRow = '';
+            icon.style.color = '';
+        } else {
+            cell.style.gridColumn = 'span 2';
+            cell.style.gridRow = 'span 2';
+            icon.style.color = 'var(--accent-blue)';
+        }
+    }
+
+    // Digital Zoom logic
+    function toggleDigitalZoom(imgId, icon) {
+        const img = document.getElementById(imgId);
+        if (!img) return;
+        const container = img.parentElement;
+
+        if (img.classList.contains('digital-zoomed')) {
+            img.classList.remove('digital-zoomed');
+            img.style.transform = '';
+            img.style.transformOrigin = '';
+            if (img._panHandler) {
+                container.removeEventListener('mousemove', img._panHandler);
+            }
+            if (icon) icon.style.color = '';
+            showToast("Digital zoom disabled", "info");
+        } else {
+            img.classList.add('digital-zoomed');
+            img.style.transform = 'scale(2.5)';
+            if (icon) icon.style.color = 'var(--accent-blue)';
+            showToast("Digital zoom activated. Move mouse inside the feed to pan.", "success");
+
+            const panImage = function (e) {
+                const rect = container.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                img.style.transformOrigin = `${x}% ${y}%`;
+            };
+            img._panHandler = panImage;
+            container.addEventListener('mousemove', panImage);
+        }
+        updateRightCamera();
+    }
+
+    // Right Sidebar Camera Change
+    function updateRightCamera() {
+        const select = document.getElementById('rightCamSelect');
+        const preview = document.getElementById('rightCamPreview');
+        if (!select || !preview) return;
+
+        const opt = select.options[select.selectedIndex];
+        preview.src = select.value;
+
+        // Update Stream Info Panel
+        const protocol = opt.getAttribute('data-type') || 'RTSP';
+        const fps = opt.getAttribute('data-fps') || '25';
+        const bitrate = opt.getAttribute('data-bitrate') || '2048';
+        const quality = opt.getAttribute('data-quality') || 'Good';
+
+        const elProtocol = document.getElementById('streamProtocol');
+        const elFPS = document.getElementById('streamFPS');
+        const elBitrate = document.getElementById('streamBitrate');
+        const elQuality = document.getElementById('streamQuality');
+
+        if (elProtocol) elProtocol.textContent = protocol;
+        if (elFPS) elFPS.textContent = `${fps} FPS`;
+        if (elBitrate) elBitrate.textContent = `${bitrate} kbps`;
+        if (elQuality) {
+            if (quality === 'Good' || quality === 'Online') {
+                elQuality.innerHTML = '<div class="legend-color ts-cont" style="width:8px;height:8px;border-radius:2px;background:var(--success)"></div> Good';
+            } else {
+                elQuality.innerHTML = '<div class="legend-color ts-cont" style="width:8px;height:8px;border-radius:2px;background:var(--danger)"></div> Offline';
+            }
+        }
+
+        const camNo = opt.getAttribute('data-cam-no');
+        const gridStream = document.getElementById(`cam-stream-${camNo}`);
+
+        if (gridStream) {
+            const cell = gridStream.closest('.video-cell');
+            if (!cell) return;
+
+            // Update Recording row
+            const recStatus = cell.querySelector('.rec-status');
+            const isRecording = recStatus ? recStatus.classList.contains('active-rec') : false;
+            const rightRec = document.getElementById('rightCamRecording');
+            const sidebarRecBtn = document.querySelector('.ctrl-btn[onclick="toggleRightRecord(this)"]');
+
+            if (rightRec) {
+                if (isRecording) {
+                    rightRec.innerHTML = '<i class="bi bi-record-circle blinking-rec"></i> REC';
+                    rightRec.className = 'status-rec text-danger';
+                    if (sidebarRecBtn) {
+                        const iTag = sidebarRecBtn.querySelector('i');
+                        if (iTag) iTag.className = 'bi bi-record-circle text-danger blinking-rec';
+                        sidebarRecBtn.innerHTML = '<i class="bi bi-record-circle text-danger blinking-rec"></i> Stop Rec';
+                    }
+                } else {
+                    rightRec.innerHTML = '<i class="bi bi-record-circle"></i> OFF';
+                    rightRec.className = 'status-on text-muted';
+                    if (sidebarRecBtn) {
+                        const iTag = sidebarRecBtn.querySelector('i');
+                        if (iTag) iTag.className = 'bi bi-record-circle';
+                        sidebarRecBtn.innerHTML = '<i class="bi bi-record-circle"></i> Record';
+                    }
+                }
+            }
+
+            // Update Audio row
+            const audioIcon = cell.querySelector('.bi-volume-up, .bi-volume-mute');
+            const isMuted = audioIcon ? audioIcon.classList.contains('bi-volume-mute') : false;
+            const rightAudio = document.getElementById('rightCamAudio');
+            const sidebarAudioBtn = document.querySelector('.ctrl-btn[onclick="toggleRightAudio(this)"]');
+
+            if (rightAudio) {
+                if (isMuted) {
+                    rightAudio.textContent = 'Off';
+                    rightAudio.className = 'text-muted';
+                    if (sidebarAudioBtn) {
+                        const iTag = sidebarAudioBtn.querySelector('i');
+                        if (iTag) iTag.className = 'bi bi-volume-mute text-danger';
+                        sidebarAudioBtn.innerHTML = '<i class="bi bi-volume-mute text-danger"></i> Audio Off';
+                    }
+                } else {
+                    rightAudio.textContent = 'On';
+                    rightAudio.className = 'status-on';
+                    if (sidebarAudioBtn) {
+                        const iTag = sidebarAudioBtn.querySelector('i');
+                        if (iTag) iTag.className = 'bi bi-volume-up text-success';
+                        sidebarAudioBtn.innerHTML = '<i class="bi bi-volume-up text-success"></i> Audio On';
+                    }
+                }
+            }
+
+            // Update Talk state
+            const talkIcon = cell.querySelector('.bi-mic');
+            const isTalking = talkIcon ? talkIcon.classList.contains('text-success') : false;
+            const sidebarTalkBtn = document.querySelector('.ctrl-btn[onclick="toggleRightTalk(this)"]');
+            if (sidebarTalkBtn) {
+                const iTag = sidebarTalkBtn.querySelector('i');
+                if (isTalking) {
+                    if (iTag) iTag.className = 'bi bi-mic text-success';
+                    sidebarTalkBtn.innerHTML = '<i class="bi bi-mic text-success"></i> Talking...';
+                } else {
+                    if (iTag) iTag.className = 'bi bi-mic';
+                    sidebarTalkBtn.innerHTML = '<i class="bi bi-mic"></i> Talk';
+                }
+            }
+
+            // Update Digital Zoom state
+            const isZoomed = gridStream.classList.contains('digital-zoomed');
+            const sidebarZoomBtn = document.querySelector('.ctrl-btn[onclick*="toggleDigitalZoom(\'rightCamPreview\'"]');
+            if (sidebarZoomBtn) {
+                const iTag = sidebarZoomBtn.querySelector('i');
+                if (isZoomed) {
+                    if (iTag) iTag.className = 'bi bi-zoom-in text-success';
+                    sidebarZoomBtn.style.background = '#1E293B';
+                } else {
+                    if (iTag) iTag.className = 'bi bi-zoom-in';
+                    sidebarZoomBtn.style.background = '';
+                }
+            }
+        }
+    }
+
+    function getActiveCameraNo() {
+        const select = document.getElementById('rightCamSelect');
+        if (!select) return null;
+        const opt = select.options[select.selectedIndex];
+        return opt ? opt.getAttribute('data-cam-no') : null;
+    }
+
+    function toggleRightRecord(btn) {
+        const camNo = getActiveCameraNo();
+        if (!camNo) return;
+        const gridRec = document.querySelector(`#cam-stream-${camNo}`).closest('.video-cell').querySelector('.rec-status');
+        if (gridRec) gridRec.click();
+    }
+
+    function toggleRightAudio(btn) {
+        const camNo = getActiveCameraNo();
+        if (!camNo) return;
+        const gridStream = document.getElementById(`cam-stream-${camNo}`);
+        if (gridStream) {
+            const cell = gridStream.closest('.video-cell');
+            const gridAudio = cell.querySelector('.bi-volume-up, .bi-volume-mute');
+            if (gridAudio) {
+                toggleMute(gridAudio);
+            }
+        }
+    }
+
+    function toggleRightTalk(btn) {
+        const camNo = getActiveCameraNo();
+        if (!camNo) return;
+        const gridStream = document.getElementById(`cam-stream-${camNo}`);
+        if (gridStream) {
+            const cell = gridStream.closest('.video-cell');
+            const gridTalk = cell.querySelector('.bi-mic');
+            if (gridTalk) {
+                const select = document.getElementById('rightCamSelect');
+                const opt = select.options[select.selectedIndex];
+                const camName = opt.getAttribute('data-name') || 'camera';
+                toggleTalk(gridTalk, camName);
+            }
+        }
+    }
+
+    function rightFullscreen() {
+        const preview = document.getElementById('rightCamPreview');
+        if (!preview) return;
+        if (preview.requestFullscreen) preview.requestFullscreen();
+        else if (preview.webkitRequestFullscreen) preview.webkitRequestFullscreen();
+    }
+
+    function rightSnapshot() {
+        const select = document.getElementById('rightCamSelect');
+        if (!select) return;
+        const opt = select.options[select.selectedIndex];
+        const camId = opt.getAttribute('data-id');
+        const camName = opt.getAttribute('data-name') || 'camera';
+        captureBackendSnapshot(camId, camName);
+    }
+
+    // Backend Snapshot capture
+    function captureBackendSnapshot(camId, camName) {
+        if (!camId) return;
+        showToast(`Capturing snapshot for ${camName}...`, "info");
+        fetch(`/snapshot/?camera=${camId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(`Snapshot saved for ${camName}! Check Snapshots page.`, "success");
+                } else {
+                    showToast(`Error: ${data.message}`, "danger");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast("Failed to connect to server.", "danger");
+            });
+    }
+
+    // Toast Notifications System
+    function showToast(message, type = 'info') {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `lm-toast lm-toast-${type}`;
+
+        let icon = 'bi-info-circle';
+        if (type === 'success') icon = 'bi-check-circle-fill';
+        if (type === 'danger') icon = 'bi-exclamation-triangle-fill';
+        if (type === 'warning') icon = 'bi-exclamation-circle-fill';
+
+        toast.innerHTML = `<i class="bi ${icon}"></i> <span>${message}</span>`;
+        container.appendChild(toast);
+
+        setTimeout(() => toast.classList.add('show'), 50);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Switch view between Live View (grid) and Map View
+    function switchView(view, tabBtn) {
+        document.querySelectorAll('.lm-tab').forEach(t => t.classList.remove('active'));
+        tabBtn.classList.add('active');
+
+        const grid = document.querySelector('.video-grid');
+        const timeline = document.getElementById('timelinePanel');
+        const mapContainer = document.getElementById('mapViewContainer');
+
+        if (view === 'live') {
+            if (grid) grid.style.display = 'grid';
+            if (timeline) timeline.style.display = 'block';
+            if (mapContainer) mapContainer.style.display = 'none';
+            showToast("Switched to Live Grid View", "info");
+        } else {
+            if (grid) grid.style.display = 'none';
+            if (timeline) timeline.style.display = 'none';
+            if (mapContainer) mapContainer.style.display = 'block';
+            showToast("Switched to Interactive Floor Map View", "info");
+        }
+    }
+
+    // Apply Group and Camera Filters
+    function applyFilters() {
+        const groupVal = document.getElementById('groupFilter').value;
+        const cameraVal = document.getElementById('cameraFilter').value;
+
+        document.querySelectorAll('.video-grid .video-cell').forEach(cell => {
+            const cellGroup = cell.getAttribute('data-group');
+            const cellCamNo = cell.getAttribute('data-cam-no');
+
+            let matchGroup = (groupVal === 'all' || cellGroup === groupVal);
+            let matchCamera = (cameraVal === 'all' || cellCamNo === cameraVal);
+
+            if (matchGroup && matchCamera) {
+                cell.style.display = 'flex';
+            } else {
+                cell.style.display = 'none';
+            }
+        });
+
+        showToast("Filters applied", "info");
+    }
+
+    // Show camera live preview popover on the Floor Plan Map
+    function showMapPreview(camId, camName, event) {
+        const popover = document.getElementById('mapPopover');
+        const popoverTitle = document.getElementById('mapPopoverTitle');
+        const popoverImg = document.getElementById('mapPopoverImg');
+        const schematic = document.querySelector('.floor-plan-schematic');
+
+        if (popover && popoverTitle && popoverImg && schematic) {
+            popoverTitle.textContent = `${camName} (Live)`;
+            popoverImg.src = `/video_feed/${camId}/`;
+
+            // Position popover near the clicked marker
+            const rect = schematic.getBoundingClientRect();
+            const posX = event.clientX - rect.left + 15;
+            const posY = event.clientY - rect.top + 15;
+
+            popover.style.left = `${posX}px`;
+            popover.style.top = `${posY}px`;
+            popover.style.display = 'block';
+
+            event.stopPropagation();
+        }
+    }
+
+    function closeMapPopover() {
+        const popover = document.getElementById('mapPopover');
+        if (popover) {
+            popover.style.display = 'none';
+            document.getElementById('mapPopoverImg').src = '';
+        }
+    }
+
+    // Click outside popover to close
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.camera-marker') && !e.target.closest('#mapPopover')) {
+            closeMapPopover();
+        }
+    });
+
+    function startAllRecording() {
+        document.querySelectorAll('.video-grid .video-cell').forEach(cell => {
+            const recBtn = cell.querySelector('.rec-status');
+            if (recBtn && !recBtn.classList.contains('active-rec')) {
+                recBtn.click();
+            }
+        });
+    }
+
+    function stopAllRecording() {
+        document.querySelectorAll('.video-grid .video-cell').forEach(cell => {
+            const recBtn = cell.querySelector('.rec-status');
+            if (recBtn && recBtn.classList.contains('active-rec')) {
+                recBtn.click();
+            }
+        });
+    }
+
+    function quickDownloadVideo() {
+        const camNo = getActiveCameraNo();
+        if (!camNo) return;
+        const gridRec = document.querySelector(`#cam-stream-${camNo}`).closest('.video-cell').querySelector('.rec-status');
+        if (gridRec && gridRec.classList.contains('active-rec')) {
+            gridRec.click(); // Stops and triggers browser download
+        } else {
+            showToast("Camera is not currently recording. Start recording first to download video.", "warning");
+        }
+    }
+
+    function takeAllSnapshots() {
+        const select = document.getElementById('rightCamSelect');
+        if (!select) return;
+
+        let count = 0;
+        for (let i = 0; i < select.options.length; i++) {
+            const opt = select.options[i];
+            const camId = opt.getAttribute('data-id');
+            const camName = opt.getAttribute('data-name');
+            const camNo = opt.getAttribute('data-cam-no');
+            const quality = opt.getAttribute('data-quality');
+
+            // Only take snapshot of online/enabled cameras in the grid
+            const gridStream = document.getElementById(`cam-stream-${camNo}`);
+            if (gridStream && gridStream.style.opacity !== '0.1' && quality === 'Good') {
+                captureBackendSnapshot(camId, camName);
+                count++;
+            }
+        }
+
+        if (count === 0) {
+            showToast("No active online cameras found to capture snapshots.", "warning");
+        }
+    }
+
+    // Run updateRightCamera on initial load to sync states
+    setTimeout(updateRightCamera, 500);
+
+    // ── COLLAPSIBLE PANELS ──
+    document.querySelectorAll('.r-header').forEach(header => {
+        header.addEventListener('click', function () {
+            const body = this.nextElementSibling;
+            const chevron = this.querySelector('.bi-chevron-up, .bi-chevron-down');
+            if (body && body.classList.contains('r-body')) {
+                if (body.style.display === 'none') {
+                    body.style.display = 'block';
+                    if (chevron) {
+                        chevron.classList.remove('bi-chevron-down');
+                        chevron.classList.add('bi-chevron-up');
+                    }
+                } else {
+                    body.style.display = 'none';
+                    if (chevron) {
+                        chevron.classList.remove('bi-chevron-up');
+                        chevron.classList.add('bi-chevron-down');
+                    }
+                }
+            }
+        });
+    });
+
+    // ── PTZ CONTROL ACTIONS ──
+    document.querySelectorAll('.ptz-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+
+            let command = 'Home';
+            if (this.classList.contains('ptz-up')) command = 'Tilt Up';
+            if (this.classList.contains('ptz-down')) command = 'Tilt Down';
+            if (this.classList.contains('ptz-left')) command = 'Pan Left';
+            if (this.classList.contains('ptz-right')) command = 'Pan Right';
+
+            showToast(`PTZ: Sending ${command} command to ${camName}`, "success");
+
+            // Add visual active scale state on click
+            this.style.transform = 'scale(0.9)';
+            setTimeout(() => { this.style.transform = ''; }, 100);
+        });
+    });
+
+    // ── ZOOM SLIDER ACTION ──
+    const zoomInput = document.querySelector('.zoom-slider input[type="range"]');
+    if (zoomInput) {
+        zoomInput.addEventListener('change', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+            showToast(`PTZ: Zoom level updated to ${this.value}% for ${camName}`, "info");
+        });
+    }
+
+    // ── PRESETS ACTIONS ──
+    const presetSelect = document.getElementById('presetSelect');
+    const presetSetBtn = document.getElementById('presetSetBtn');
+    const presetGoBtn = document.getElementById('presetGoBtn');
+
+    if (presetSetBtn && presetGoBtn && presetSelect) {
+        presetSetBtn.addEventListener('click', function () {
+            const val = presetSelect.value;
+            if (!val) {
+                showToast("Please select a preset option first", "warning");
+                return;
+            }
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+            showToast(`Presets: Saved current position to Preset ${val} for ${camName}`, "success");
+        });
+
+        presetGoBtn.addEventListener('click', function () {
+            const val = presetSelect.value;
+            if (!val) {
+                showToast("Please select a preset option first", "warning");
+                return;
+            }
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+            showToast(`Presets: Moving ${camName} to Preset ${val}...`, "info");
+        });
+    }
+
+    // ── MORE OPTIONS BUTTON ACTIONS ──
+    const btnStreamInfo = document.getElementById('optStreamInfo');
+    const btnCameraHealth = document.getElementById('optCameraHealth');
+    const btnMotionDetection = document.getElementById('optMotionDetection');
+    const btnAiDetection = document.getElementById('optAiDetection');
+
+    if (btnStreamInfo) {
+        btnStreamInfo.addEventListener('click', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+            const protocol = opt ? (opt.getAttribute('data-type') || 'RTSP') : 'RTSP';
+            const fps = opt ? (opt.getAttribute('data-fps') || '25') : '25';
+            const bitrate = opt ? (opt.getAttribute('data-bitrate') || '2048') : '2048';
+            showToast(`Stream Info for ${camName}: protocol=${protocol}, resolution=1280x720, fps=${fps}, bitrate=${bitrate}kbps`, "info");
+
+            this.classList.toggle('active');
+        });
+    }
+
+    if (btnCameraHealth) {
+        btnCameraHealth.addEventListener('click', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+            showToast(`Health Report for ${camName}: ping=8ms, temp=42°C, packet_loss=0.0%, status=Healthy`, "success");
+
+            this.classList.toggle('active');
+        });
+    }
+
+    if (btnMotionDetection) {
+        btnMotionDetection.addEventListener('click', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+
+            const active = this.classList.toggle('active');
+            if (active) {
+                showToast(`Motion Detection enabled for ${camName}`, "danger");
+            } else {
+                showToast(`Motion Detection disabled for ${camName}`, "info");
+            }
+        });
+    }
+
+    if (btnAiDetection) {
+        btnAiDetection.addEventListener('click', function () {
+            const select = document.getElementById('rightCamSelect');
+            const opt = select ? select.options[select.selectedIndex] : null;
+            const camName = opt ? opt.getAttribute('data-name') : 'camera';
+
+            const active = this.classList.toggle('active');
+            if (active) {
+                showToast(`AI facial/object recognition enabled for ${camName}`, "danger");
+            } else {
+                showToast(`AI facial/object recognition disabled for ${camName}`, "info");
+            }
+        });
+    }
+</script>
+{% endblock %}

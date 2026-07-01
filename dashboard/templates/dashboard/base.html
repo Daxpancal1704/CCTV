@@ -1,0 +1,958 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart CCTV Monitoring System{% endblock %}</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Chart.js — must be loaded BEFORE any chart initialisation scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* ── CSS VARIABLES ── */
+        :root, [data-theme="dark"] {
+            --bg:                   #0B1120;
+            --sidebar-bg:           #0F172A;
+            --card-bg:              #111827;
+            --card-border:          #1E293B;
+            --text-primary:         #F9FAFB;
+            --text-secondary:       #9CA3AF;
+            --text-muted:           #6B7280;
+            --accent:               #2563EB;
+            --accent-2:             #8B5CF6;
+            --accent-green:         #10B981;
+            --accent-red:           #EF4444;
+            --accent-amber:         #F59E0B;
+            --accent-cyan:          #06B6D4;
+            --header-bg:            #0B1120;
+            --live-bg:              #000000;
+            --status-online-bg:     rgba(16, 185, 129, 0.15);
+            --status-online-color:  #10B981;
+            --status-offline-bg:    rgba(239, 68, 68, 0.15);
+            --status-offline-color: #EF4444;
+            --table-stripe:         #172033;
+            --input-bg:             #0F172A;
+            --input-border:         #1E293B;
+            --shadow:               0 1px 3px rgba(0,0,0,.3);
+            --shadow-md:            0 4px 16px rgba(0,0,0,.4);
+        }
+
+        /* ── BASE ── */
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            transition: background .25s, color .25s;
+        }
+
+        /* ── LAYOUT ── */
+        .page-wrapper { display: flex; flex-direction: row; min-height: 100vh; }
+        .sidebar {
+            width: 250px;
+            min-height: 100vh;
+            flex-shrink: 0;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .topbar {
+            height: 72px;
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--card-border);
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .content-inner {
+            padding: 24px;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar-brand {
+            padding: 22px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .brand-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .brand-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .nav-section {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            padding: 18px 22px 6px;
+        }
+        .nav-link-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 20px;
+            margin: 3px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: .25s;
+        }
+        .nav-link-item.active {
+            background: #2563EB;
+            color: #fff;
+        }
+        .nav-link-item:hover:not(.active) {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--text-primary);
+        }
+        .nav-badge {
+            margin-left: auto;
+            background: #ef4444;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 999px;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 14px;
+            border-top: 1px solid var(--card-border);
+        }
+        /* theme toggle */
+        .theme-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .theme-toggle input { opacity: 0; width: 0; height: 0; }
+        .theme-slider {
+            position: absolute; inset: 0;
+            background: #334155; border-radius: 999px; cursor: pointer;
+            transition: .3s;
+        }
+        .theme-slider::before {
+            content: '';
+            position: absolute;
+            width: 14px; height: 14px;
+            left: 3px; top: 3px;
+            background: #fff; border-radius: 50%;
+            transition: .3s;
+        }
+        .theme-toggle input:checked + .theme-slider { background: #3b82f6; }
+        .theme-toggle input:checked + .theme-slider::before { transform: translateX(16px); }
+
+        /* ── TOPBAR ── */
+        .topbar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .topbar-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .search-box {
+            flex: 1;
+            max-width: 460px;
+            position: relative;
+            margin: 0 auto;
+        }
+        .search-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+        .search-box input {
+            width: 100%;
+            height: 42px;
+            padding-left: 42px;
+            border-radius: 999px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: .3s;
+        }
+        .search-box input::placeholder { color: var(--text-muted); }
+        .search-box input:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .topbar-icons {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .icon-btn {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            position: relative;
+            transition: .2s;
+            font-size: 16px;
+        }
+        .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .badge-dot {
+            position: absolute;
+            top: -5px; right: -5px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 999px;
+            min-width: 20px;
+            text-align: center;
+            border: 2px solid var(--sidebar-bg);
+        }
+        .topbar-divider {
+            width: 1px;
+            height: 32px;
+            background: var(--card-border);
+            margin: 0 4px;
+        }
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 12px;
+            transition: .2s;
+        }
+        .user-profile:hover {
+            background: var(--table-stripe);
+        }
+        .user-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(59,130,246,.3);
+        }
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .user-name {
+            font-size: .85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+        .user-status {
+            font-size: .7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+        }
+        .online-dot {
+            display: inline-block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 5px;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .page-header h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .clock-box {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .8rem;
+            color: var(--text-secondary);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 6px 14px;
+            border-radius: 8px;
+        }
+
+        /* ── STAT CARDS ── */
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 140px;
+            transition: .35s;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #2563EB;
+            box-shadow: var(--shadow-md);
+        }
+        .stat-icon {
+            width: 50px; height: 50px;
+            border-radius: 14px;
+            font-size: 22px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 12px;
+            background: rgba(255,255,255,.05);
+            color: var(--stat-color, var(--accent));
+        }
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--text-primary);
+        }
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        .sparkline {
+            position: absolute;
+            bottom: 0; right: 0;
+            width: 80px; height: 28px;
+            opacity: .7;
+        }
+
+        /* ── CAMERA STATUS INSIDE STAT CARD ── */
+        .cam-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: .78rem;
+        }
+        .cam-status-name { color: var(--text-secondary); }
+        .cam-status-time { font-size: .68rem; color: var(--text-muted); margin-top: 2px; }
+        .status-badge {
+            font-size: .7rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        .status-online {
+            background: var(--status-online-bg);
+            color: var(--status-online-color);
+        }
+        .status-offline {
+            background: var(--status-offline-bg);
+            color: var(--status-offline-color);
+        }
+        .status-checking {
+            background: rgba(100, 116, 139, 0.15);
+            color: #94a3b8;
+        }
+
+        /* ── LIVE CAMERA CARD ── */
+        .live-camera-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+        }
+        .live-camera-card .card-header {
+            background: none;
+            border-bottom: 1px solid var(--card-border);
+            padding: 16px 20px;
+            color: var(--text-primary);
+        }
+        .camera-feed {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid var(--card-border);
+            transition: .3s;
+        }
+        .camera-feed:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,.4);
+        }
+        .camera-stream {
+            width: 100%;
+            height: 260px;
+            object-fit: cover;
+            display: block;
+        }
+        
+        /* Fullscreen Layout Fixes */
+        .camera-feed:fullscreen, .camera-feed:-webkit-full-screen {
+            border-radius: 0;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+        .camera-feed:fullscreen .camera-stream, .camera-feed:-webkit-full-screen .camera-stream {
+            height: 100%;
+            object-fit: contain;
+        }
+        .camera-feed:fullscreen .camera-offline, .camera-feed:-webkit-full-screen .camera-offline {
+            height: 100%;
+        }
+        .camera-header {
+            position: absolute;
+            top: 10px; left: 10px; right: 10px;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .camera-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #00ff66;
+            display: inline-block;
+            margin-right: 6px;
+            animation: pulse-dot 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .3; }
+        }
+        .rec-badge {
+            background: #ff1e1e;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .camera-footer {
+            position: absolute;
+            bottom: 10px; left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        .camera-btn {
+            width: 38px; height: 38px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(0,0,0,.65);
+            color: white;
+            cursor: pointer;
+            transition: .2s;
+        }
+        .camera-btn:hover { background: #0d6efd; }
+        .camera-offline {
+            height: 260px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: #888; font-size: 18px;
+        }
+        .camera-offline i { font-size: 55px; margin-bottom: 15px; }
+
+        /* ── GENERAL CARD ── */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+        }
+        .card-header-custom {
+            padding: 14px 20px;
+            font-size: .85rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+        }
+        .card-body-custom {
+            padding: 18px 20px;
+        }
+
+        /* ── DASHBOARD-CARD (analytics) ── */
+        .dashboard-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+        }
+        .dashboard-card .card-header {
+            background: none;
+            border-bottom: 1px solid var(--card-border);
+            padding: 14px 18px;
+            font-size: .85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ── EVENT ITEMS (Recent Alerts feed) ── */
+        .event-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--card-border);
+            transition: .25s;
+        }
+        .event-item:last-child { border-bottom: none; }
+        .event-item:hover { background: var(--table-stripe); }
+        .event-icon {
+            width: 42px; height: 42px;
+            border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            color: white;
+            font-size: 17px;
+            margin-right: 14px;
+            flex-shrink: 0;
+        }
+        .event-content { flex: 1; min-width: 0; }
+        .event-title {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-primary);
+        }
+        .event-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* ── ALERT TYPE BADGES ── */
+        .alert-type-badge {
+            font-size: .72rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .alert-motion    { background: rgba(245,158,11,.15); color: var(--accent-amber); }
+        .alert-face      { background: rgba(239,68,68,.15);  color: var(--accent-red); }
+        .alert-intrusion { background: rgba(139,92,246,.15); color: var(--accent-2); }
+        .alert-default   { background: rgba(59,130,246,.15); color: var(--accent); }
+
+        /* ── TABLES ── */
+        .table {
+            color: var(--text-primary);
+            --bs-table-color: var(--text-primary);
+            --bs-table-bg: transparent;
+            --bs-table-striped-bg: var(--table-stripe);
+            --bs-table-hover-color: var(--text-primary);
+            --bs-table-hover-bg: var(--table-stripe);
+        }
+        .table thead th {
+            font-size: .75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--card-border);
+            padding: 10px 16px;
+        }
+        .table tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+        .visitor-img {
+            width: 44px; height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--card-border);
+        }
+        .snapshot-img {
+            width: 100%;
+            border-radius: 10px;
+            object-fit: cover;
+            height: 120px;
+            border: 1px solid var(--card-border);
+            transition: .3s;
+        }
+        .snapshot-img:hover { transform: scale(1.03); }
+
+        /* ── CAMERA LIST CARDS ── */
+        .cam-list-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .cam-type-badge {
+            font-size: .65rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(59,130,246,.15);
+            color: var(--accent);
+        }
+
+        /* ── DOWNLOAD STRIP ── */
+        .download-strip {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 16px 20px;
+        }
+
+        /* ── CUSTOM SCROLLBAR ── */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+<div class="page-wrapper">
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════ -->
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon"><i class="bi bi-shield-check"></i></div>
+        <div>
+            <div class="brand-name">SMART CCTV</div>
+            <div class="brand-sub">MONITORING SYSTEM</div>
+        </div>
+    </div>
+
+    <div class="nav-section">MAIN</div>
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'home' %}"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+    
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Security Officer' or request.user.profile.role == 'Operator' or request.user.profile.role == 'Viewer' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'live_monitoring' %}active{% endif %}" href="{% url 'live_monitoring' %}"><i class="bi bi-display"></i><span>Live Monitoring</span></a>
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'snapshots' %}active{% endif %}" href="{% url 'snapshots' %}"><i class="bi bi-camera-fill"></i><span>Snapshots</span></a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'cameras' %}active{% endif %}" href="{% url 'cameras' %}"><i class="bi bi-camera-video"></i><span>Cameras</span></a>
+    {% endif %}
+    
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Security Officer' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'ai_events' %}active{% endif %}" href="{% url 'ai_events' %}">
+        <i class="bi bi-sun"></i><span>AI Detection</span>
+    </a>
+    {% endif %}
+    
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Security Officer' or request.user.profile.role == 'Auditor' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'attendance' %}active{% endif %}" href="{% url 'attendance' %}"><i class="bi bi-person-check"></i><span>Attendance</span></a>
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'visitors' %}active{% endif %}" href="{% url 'visitors' %}"><i class="bi bi-person"></i><span>Visitors</span></a>
+    {% endif %}
+
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Security Officer' or request.user.profile.role == 'Operator' or request.user.profile.role == 'Auditor' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'alerts_page' %}active{% endif %}" href="{% url 'alerts_page' %}">
+        <i class="bi bi-bell"></i><span>Alerts</span>
+        <span class="nav-badge" id="sidebar-alert-count">12</span>
+    </a>
+    {% endif %}
+    
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'wanted_persons' %}active{% endif %}" href="{% url 'wanted_persons' %}"><i class="bi bi-person-bounding-box"></i><span>Unknown Faces</span></a>
+
+    <div class="nav-section">MANAGEMENT</div>
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'face_register' %}active{% endif %}" href="{% url 'face_register' %}"><i class="bi bi-person-bounding-box"></i><span>Face Registration</span></a>
+    <a class="nav-link-item" href="#"><i class="bi bi-gear"></i><span>Camera Management</span></a>
+    <a class="nav-link-item" href="#"><i class="bi bi-device-hdd"></i><span>Device & Groups</span></a>
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'users' %}active{% endif %}" href="{% url 'users' %}"><i class="bi bi-people"></i><span>Users & Roles</span></a>
+    {% endif %}
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Auditor' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'logs' %}active{% endif %}" href="{% url 'logs' %}"><i class="bi bi-journal-text"></i><span>Logs</span></a>
+    {% endif %}
+
+    <div class="nav-section">REPORTS</div>
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' or request.user.profile.role == 'Security Officer' or request.user.profile.role == 'Auditor' or request.user.profile.role == 'Viewer' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'reports' %}active{% endif %}" href="{% url 'reports' %}"><i class="bi bi-bar-chart-line"></i><span>Reports</span></a>
+    <a class="nav-link-item" href="{% url 'download_report' %}"><i class="bi bi-download"></i><span>Export Data</span></a>
+    {% endif %}
+
+    <div class="nav-section">SETTINGS</div>
+    {% if request.user.is_superuser or request.user.profile.role == 'Super admin' or request.user.profile.role == 'Admin' %}
+    <a class="nav-link-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'settings' %}"><i class="bi bi-gear"></i><span>System Settings</span></a>
+    <a class="nav-link-item" href="#"><i class="bi bi-bell"></i><span>Notifications</span></a>
+    <a class="nav-link-item" href="#"><i class="bi bi-arrow-counterclockwise"></i><span>Backup & Restore</span></a>
+    {% endif %}
+
+    <div class="sidebar-footer">
+        <div class="d-flex align-items-center gap-2 p-2 rounded" style="background: rgba(16, 185, 129, 0.1);">
+            <i class="bi bi-shield-check text-success fs-5"></i>
+            <div>
+                <div class="fw-bold" style="font-size: 13px; color: var(--text-primary);">System Status</div>
+                <div style="font-size: 11px; color: var(--accent-green);">All Systems Operational</div>
+            </div>
+        </div>
+        <div class="text-center mt-2" style="font-size: 10px; color: var(--text-muted);">Version 1.0.0</div>
+    </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     MAIN WRAPPER (topbar + content)
+══════════════════════════════════════════ -->
+<div class="main-wrapper">
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+    <div>
+        <div class="topbar-title">{% block topbar_title %}Dashboard{% endblock %}</div>
+        <div class="topbar-sub">{% block topbar_subtitle %}Home / Dashboard{% endblock %}</div>
+    </div>
+
+    <form class="search-box" action="{% url 'visitors' %}" method="GET">
+        <i class="bi bi-search"></i>
+        <input type="text" name="q" placeholder="Search cameras, people, alerts..." value="{{ request.GET.q }}">
+        <button type="submit" class="d-none"></button>
+    </form>
+
+    <div class="topbar-icons">
+        <div class="d-flex align-items-center me-3" id="global-clock" style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: #e5e7eb; letter-spacing: 0.5px;">--</div>
+        <div class="dropdown">
+            <div class="icon-btn" title="Notifications" data-bs-toggle="dropdown" aria-expanded="false" id="notifDropdownBtn">
+                <i class="bi bi-bell-fill"></i>
+                <span class="badge-dot" id="notif-badge">12</span>
+            </div>
+            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow" style="width: 320px; padding: 0; border: 1px solid var(--card-border); overflow: hidden; background-color: var(--card-bg);">
+                <li class="p-3 fw-bold border-bottom border-secondary d-flex justify-content-between align-items-center" style="background-color: rgba(0,0,0,0.2);">
+                    <span class="text-white">Recent Alerts</span>
+                    <i class="bi bi-bell text-muted"></i>
+                </li>
+                {% for alert in recent_alerts %}
+                <li><a class="dropdown-item py-3 border-bottom border-secondary" href="{% url 'alerts_page' %}" style="white-space: normal;">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; flex-shrink: 0;">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-white text-wrap" style="font-size: 0.85rem;">{{ alert.alert_type }}</div>
+                            <div class="text-muted mt-1" style="font-size: 0.75rem;">{{ alert.created_at|timesince }} ago</div>
+                        </div>
+                    </div>
+                </a></li>
+                {% empty %}
+                <li><a class="dropdown-item py-4 text-center text-muted border-bottom border-secondary">No recent alerts</a></li>
+                {% endfor %}
+                <li><a class="dropdown-item text-center fw-bold py-2" href="{% url 'alerts_page' %}" style="font-size:0.85rem; color: var(--accent); background-color: rgba(0,0,0,0.2);">View All Alerts</a></li>
+            </ul>
+        </div>
+        
+        <div class="dropdown">
+            <div class="icon-btn" title="Messages" data-bs-toggle="dropdown" aria-expanded="false" id="msgDropdownBtn">
+                <i class="bi bi-envelope"></i>
+            </div>
+        </div>
+
+        <div class="icon-btn" title="Fullscreen" onclick="toggleFullscreen()">
+            <i class="bi bi-fullscreen"></i>
+        </div>
+        
+        <div class="topbar-divider"></div>
+        
+        <div class="dropdown">
+            <div class="user-profile" data-bs-toggle="dropdown" aria-expanded="false" title="User Profile">
+                <img src="{% static 'images/avatar_placeholder.png' %}" onerror="this.src='https://ui-avatars.com/api/?name=Super+Admin&background=random'" alt="User" class="rounded-circle" style="width: 38px; height: 38px;">
+                <div class="user-info d-none d-md-flex">
+                    <div class="user-name">{{ request.user.username|default:"Super Admin" }}</div>
+                    <div class="user-status" style="color:var(--text-secondary);">Super Admin</div>
+                </div>
+            </div>
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="border: 1px solid var(--card-border);">
+                <li><a class="dropdown-item py-2" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                <li><a class="dropdown-item py-2" href="#"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="dropdown-item py-2 text-danger"><i class="bi bi-box-arrow-right me-2"></i>Logout</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</header>
+
+<!-- ══════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════ -->
+<main class="main-content">
+<div class="content-inner">
+                {% block content %}{% endblock %}
+            </div><!-- /content-inner -->
+</main>
+</div><!-- /main-wrapper -->
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Dashboard JS files -->
+    <script src="{% static 'js/dashboard.js' %}?v=8"></script>
+    <script src="{% static 'js/dashboard-ui.js' %}?v=8"></script>
+    <script src="{% static 'js/custom-dashboard.js' %}?v=8"></script>
+
+{% block extra_js %}{% endblock %}
+<!-- Camera Settings Modal -->
+<div class="modal fade" id="cameraSettingsModal" tabindex="-1" aria-labelledby="cameraSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--card-border);">
+                <h5 class="modal-title" id="cameraSettingsModalLabel"><i class="bi bi-gear-fill me-2 text-primary"></i>Camera Settings</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="cameraSettingsForm">
+                    <input type="hidden" id="editCamId" name="cam_id">
+                    
+                    <div class="mb-3">
+                        <label for="editCamName" class="form-label" style="font-size: 0.85rem; color: var(--text-sub);">Camera Name</label>
+                        <input type="text" class="form-control" id="editCamName" name="name" required style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main);">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCamUrl" class="form-label" style="font-size: 0.85rem; color: var(--text-sub);">Camera URL / Device Index</label>
+                        <input type="text" class="form-control" id="editCamUrl" name="source_url" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main);">
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="editCamType" class="form-label" style="font-size: 0.85rem; color: var(--text-sub);">Type</label>
+                            <select class="form-select" id="editCamType" name="camera_type" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main);">
+                                <option value="RTSP">RTSP</option>
+                                <option value="IP Camera">IP Camera</option>
+                                <option value="PTZ Camera">PTZ Camera</option>
+                                <option value="Dome Camera">Dome Camera</option>
+                                <option value="Bullet Camera">Bullet Camera</option>
+                                <option value="USB">USB</option>
+                                <option value="Webcam">Webcam</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label for="editCamQuality" class="form-label" style="font-size: 0.85rem; color: var(--text-sub);">Stream Quality</label>
+                            <select class="form-select" id="editCamQuality" name="stream_quality" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main);">
+                                <option value="Auto">Auto</option>
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="HD">HD</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editCamLocation" class="form-label" style="font-size: 0.85rem; color: var(--text-sub);">Location (Optional)</label>
+                        <input type="text" class="form-control" id="editCamLocation" name="location" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main);">
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="editCamEnabled" name="is_enabled">
+                        <label class="form-check-label" for="editCamEnabled" style="color: var(--text-main);">Enable Camera</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid var(--card-border); justify-content: space-between;">
+                <button type="button" class="btn btn-outline-danger" onclick="deleteCameraFromSettings()">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCameraSettings()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Camera Delete Confirmation Modal -->
+<div class="modal fade" id="cameraDeleteConfirmModal" tabindex="-1" aria-labelledby="cameraDeleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main);">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center pt-0">
+                <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                <h5 class="mt-3 mb-2" id="cameraDeleteConfirmModalLabel">Delete Camera?</h5>
+                <p style="font-size: 0.9rem; color: var(--text-sub);">This action cannot be undone. All data related to this camera may be removed.</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pt-0 pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger px-4" onclick="confirmDeleteCameraAction()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+    function updateGlobalClock() {
+        const clockEl = document.getElementById('global-clock');
+        if (clockEl) {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+            clockEl.innerHTML = `${dateStr} <span class="mx-2 text-secondary">|</span> ${timeStr} <i class="bi bi-calendar3 ms-2 text-secondary"></i>`;
+        }
+    }
+    setInterval(updateGlobalClock, 1000);
+    updateGlobalClock();
+</script>
+</body>
+</html>

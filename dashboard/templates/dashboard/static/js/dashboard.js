@@ -18,9 +18,7 @@ document
     .then(res => res.json())
     .then(data => {
 
-        alert(data.message);
-
-        location.reload();
+        showToast(data.message || 'Snapshot captured successfully!');
 
     });
 

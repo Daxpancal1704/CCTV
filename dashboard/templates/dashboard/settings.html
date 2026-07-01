@@ -1,0 +1,56 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Settings - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-gear-fill me-2 text-primary"></i>System Settings</h2>
+    <div class="clock-box" id="clock" style="display: none;">--:--:--</div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-sliders me-2" style="color:var(--accent)"></i>
+                General Preferences
+            </div>
+            <div class="card-body-custom">
+                <p class="text-muted" style="font-size:.9rem">Configure general system preferences.</p>
+                <div class="form-check form-switch mb-3 mt-4">
+                    <input class="form-check-input" type="checkbox" role="switch" id="autoStartSwitch" checked>
+                    <label class="form-check-label" for="autoStartSwitch">Auto-start cameras on boot</label>
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="emailAlertsSwitch" checked>
+                    <label class="form-check-label" for="emailAlertsSwitch">Enable Email Alerts</label>
+                </div>
+                <button class="btn btn-primary mt-3">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header-custom">
+                <i class="bi bi-shield-lock me-2" style="color:var(--accent-red)"></i>
+                Security
+            </div>
+            <div class="card-body-custom">
+                <p class="text-muted" style="font-size:.9rem">Manage security settings and passwords.</p>
+                
+                <div class="mb-3 mt-4">
+                    <label class="form-label" style="font-size:.8rem">Current Password</label>
+                    <input type="password" class="form-control" placeholder="••••••••">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" style="font-size:.8rem">New Password</label>
+                    <input type="password" class="form-control" placeholder="••••••••">
+                </div>
+                <button class="btn btn-outline-danger mt-2">Update Password</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

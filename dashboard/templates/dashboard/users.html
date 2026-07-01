@@ -1,0 +1,182 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}User Management - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-people-fill me-2 text-primary"></i>User Management</h2>
+    <div class="clock-box" id="clock" style="display: none;">--:--:--</div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80;">
+            {{ message }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="row">
+    <!-- User Registration Form -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header-custom border-bottom" style="border-color: var(--card-border) !important;">
+                <h5 class="m-0"><i class="bi bi-person-plus-fill me-2 text-primary"></i>Add New User</h5>
+            </div>
+            <div class="card-body-custom p-4">
+                <form method="POST" action="{% url 'users' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Username *</label>
+                        <input type="text" name="username" class="form-control" placeholder="Enter username" required style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Password *</label>
+                        <input type="password" name="password" class="form-control" placeholder="Enter password" required style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="Enter email" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">First Name</label>
+                            <input type="text" name="first_name" class="form-control" placeholder="First name" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" placeholder="Last name" style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-secondary fw-bold" style="font-size: 0.85rem;">Role / Permission *</label>
+                        <select name="role" class="form-select" required style="background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">
+                            {% for role in roles %}
+                                <option value="{{ role }}">{{ role }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted mt-1" style="font-size:0.75rem;">Select role for user permission configuration.</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-2"><i class="bi bi-save me-2"></i>Create Account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registered Users List -->
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header-custom border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--card-border) !important;">
+                <h5 class="m-0"><i class="bi bi-list-task me-2 text-primary"></i>All Users</h5>
+                <span class="badge bg-primary">{{ active_users_count }} Online / {{ users|length }} Total</span>
+            </div>
+            <div class="card-body-custom p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-white">
+                        <thead class="text-muted">
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td class="fw-semibold">{{ u.username }}</td>
+                                <td>{{ u.get_full_name|default:"--" }}</td>
+                                <td>{{ u.email|default:"--" }}</td>
+                                <td>
+                                    {% if u.profile.role == 'Super admin' %}
+                                        <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">Super admin</span>
+                                    {% elif u.profile.role == 'Admin' %}
+                                        <span class="badge bg-warning bg-opacity-25 text-warning border border-warning">Admin</span>
+                                    {% elif u.profile.role == 'Security Officer' %}
+                                        <span class="badge bg-info bg-opacity-25 text-info border border-info">Security Officer</span>
+                                    {% elif u.profile.role == 'Operator' %}
+                                        <span class="badge bg-success bg-opacity-25 text-success border border-success">Operator</span>
+                                    {% elif u.profile.role == 'Auditor' %}
+                                        <span class="badge bg-indigo bg-opacity-25 text-indigo border border-indigo" style="color:#a78bfa; border-color: rgba(167, 139, 250, 0.4); background: rgba(167, 139, 250, 0.1);">Auditor</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary">Viewer</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if u.id in active_user_ids %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1"><span class="online-dot me-1" style="background:#22c55e; width:6px; height:6px; display:inline-block; border-radius:50%;"></span>Online</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border-0 px-2 py-1">Offline</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:0.85rem; color:var(--text-muted);">{{ u.date_joined|date:"M d, Y" }}</td>
+                                <td>
+                                    {% if u.id != request.user.id %}
+                                        {% if u.profile.role != 'Super admin' and not u.is_superuser or is_super_admin %}
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Delete Account" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ u.id }}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            
+                                            <!-- Delete Confirmation Modal -->
+                                            <div class="modal fade" id="deleteUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog modal-dialog-centered">
+                                                    <div class="modal-content" style="background-color: #1a1d24; border-radius: 16px; border: 1px solid #2d3342;">
+                                                        <div class="modal-body p-4 p-md-5 text-center">
+                                                            <div class="mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 72px; height: 72px; border-radius: 50%; background-color: rgba(229, 62, 75, 0.1);">
+                                                                <i class="bi bi-trash text-danger" style="font-size: 2rem;"></i>
+                                                            </div>
+                                                            <h4 class="fw-bold text-white mb-3">Delete User Account?</h4>
+                                                            <p class="mb-4" style="color: #8c93a1;">Are you sure you want to permanently delete the user account for <strong>{{ u.username }}</strong>? This action cannot be undone.</p>
+                                                            
+                                                            <div class="d-flex justify-content-center gap-3 mt-4">
+                                                                <button type="button" class="btn flex-fill fw-semibold" style="background-color: #242a38; border: 1px solid #333a4d; color: #fff; padding: 10px 0; border-radius: 8px;" data-bs-dismiss="modal">Cancel</button>
+                                                                <form method="post" action="{% url 'delete_user' u.id %}" class="flex-fill m-0">
+                                                                    {% csrf_token %}
+                                                                    <button type="submit" class="btn fw-semibold w-100" style="background-color: #e53e4b; color: #fff; padding: 10px 0; border-radius: 8px;">Yes, Delete</button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted" style="font-size:0.8rem;">Super Admin</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted" style="font-size:0.8rem;">Current Account</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">No users registered in the system.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control:focus, .form-select:focus {
+        background: var(--input-bg);
+        color: var(--text-primary);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+</style>
+{% endblock %}

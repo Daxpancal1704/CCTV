@@ -20,17 +20,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     })
   }
 
-  // Enhance camera status display (handles missing time)
-  function updateCameraStatusUI(data){
-    const c1 = document.getElementById('camera1-status');
-    const c2 = document.getElementById('camera2-status');
-    if(c1) { c1.textContent = data.camera1; c1.className = 'status-badge ' + (data.camera1==='Online' ? 'status-online' : 'status-offline'); }
-    if(c2) { c2.textContent = data.camera2; c2.className = 'status-badge ' + (data.camera2==='Online' ? 'status-online' : 'status-offline'); }
-  }
 
-  // start a lightweight poll for camera status
-  setInterval(()=>{
-    fetch('/camera_status/').then(r=>r.json()).then(updateCameraStatusUI).catch(()=>{});
-  },5000);
 
 });

@@ -1,0 +1,134 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Snapshots - Smart CCTV{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-camera-fill me-2 text-primary"></i>Snapshots</h2>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header-custom d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-image me-2" style="color:var(--accent-cyan)"></i>
+                    Recent Snapshots
+                </div>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search snapshot..." style="width: 200px;">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-filter"></i></button>
+                </div>
+            </div>
+            <div class="card-body-custom p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Snapshot</th>
+                                <th>Camera</th>
+                                <th>Created At</th>
+                                <th>Download Options</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for snapshot in snapshots %}
+                            <tr>
+                                <td style="width: 120px;">
+                                    {% if snapshot.image %}
+                                        <img src="{{ snapshot.image.url }}" alt="Snapshot" style="width:100px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--card-border)">
+                                    {% else %}
+                                        <div style="width:100px;height:70px;background:var(--input-bg);border-radius:8px;display:grid;place-items:center;color:var(--text-muted)">
+                                            <i class="bi bi-image"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span style="font-size:.85rem"><i class="bi bi-camera-video me-1"></i>{{ snapshot.camera_name|default:"Main Camera" }}</span>
+                                </td>
+                                <td>
+                                    <div style="font-size:.9rem">{{ snapshot.created_at|date:"M d, Y" }}</div>
+                                    <div style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text-muted)">{{ snapshot.created_at|time:"H:i:s" }}</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'download_snapshot' snapshot.id %}?format=jpg" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size:.75rem">JPG</a>
+                                            <a href="{% url 'download_snapshot' snapshot.id %}?format=png" class="btn btn-sm btn-outline-success py-1 px-2" style="font-size:.75rem">PNG</a>
+                                            <a href="{% url 'download_snapshot' snapshot.id %}?format=pdf" class="btn btn-sm btn-outline-danger py-1 px-2" style="font-size:.75rem">PDF</a>
+                                            <a href="{% url 'download_snapshot' snapshot.id %}?format=bmp" class="btn btn-sm btn-outline-info py-1 px-2" style="font-size:.75rem">BMP</a>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger py-1 px-2" title="Delete Snapshot" onclick="confirmDeleteSnapshot({{ snapshot.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        <form id="delete-form-{{ snapshot.id }}" method="POST" action="{% url 'delete_snapshot' snapshot.id %}" class="d-none">
+                                            {% csrf_token %}
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-image d-block mb-2" style="font-size:2rem"></i>
+                                    No snapshots available.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden; background: var(--card-bg);">
+      <div class="modal-body p-4 text-center">
+        <div class="mb-3 mt-2">
+            <div class="mx-auto rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px; background: rgba(239, 68, 68, 0.1);">
+                <i class="bi bi-trash text-danger" style="font-size: 2.2rem;"></i>
+            </div>
+        </div>
+        <h5 class="mb-2 fw-bold" style="color: var(--text-primary);">Delete Snapshot?</h5>
+        <p class="mb-4" style="font-size: 0.95rem; color: var(--text-muted);">This action cannot be undone. Are you sure you want to permanently delete this snapshot?</p>
+        <div class="d-flex gap-2 w-100">
+            <button type="button" class="btn btn-light w-50" data-bs-dismiss="modal" style="border-radius: 10px; font-weight: 500; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary);">Cancel</button>
+            <button type="button" class="btn btn-danger w-50 shadow-sm" id="confirmDeleteBtn" style="border-radius: 10px; font-weight: 500;">Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let deleteFormIdToSubmit = null;
+let deleteModalInstance = null;
+
+function confirmDeleteSnapshot(snapshotId) {
+    deleteFormIdToSubmit = 'delete-form-' + snapshotId;
+    if (!deleteModalInstance) {
+        deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    }
+    deleteModalInstance.show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (deleteFormIdToSubmit) {
+                // Show loading state
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...';
+                this.disabled = true;
+                document.getElementById(deleteFormIdToSubmit).submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

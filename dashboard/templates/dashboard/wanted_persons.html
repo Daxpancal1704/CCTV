@@ -1,0 +1,404 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block title %}Wanted Persons - Smart CCTV{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wanted-upload-zone {
+        border: 2px dashed rgba(239, 68, 68, 0.4);
+        border-radius: 16px;
+        padding: 40px 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        background: rgba(239, 68, 68, 0.03);
+        cursor: pointer;
+        position: relative;
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .wanted-upload-zone:hover,
+    .wanted-upload-zone.dragover {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.08);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(239, 68, 68, 0.15);
+    }
+    .wanted-upload-zone .upload-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 28px;
+        color: #ef4444;
+        transition: .3s;
+    }
+    .wanted-upload-zone:hover .upload-icon {
+        transform: scale(1.1);
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15));
+    }
+    .wanted-upload-zone .upload-text {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    .wanted-upload-zone .upload-text strong {
+        color: #ef4444;
+    }
+    .preview-img-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    .preview-img-wrapper img {
+        width: 180px;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 12px;
+        border: 2px solid rgba(239, 68, 68, 0.4);
+    }
+    .preview-img-wrapper .remove-preview {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid var(--card-bg);
+        color: #fff;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: .2s;
+    }
+    .preview-img-wrapper .remove-preview:hover {
+        transform: scale(1.15);
+    }
+    .wanted-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.35s ease;
+        position: relative;
+    }
+    .wanted-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.4);
+    }
+    .wanted-card .card-img-top {
+        height: 200px;
+        object-fit: cover;
+        border-bottom: 1px solid var(--card-border);
+    }
+    .wanted-card .wanted-badge {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4);
+    }
+    .wanted-card .card-body {
+        padding: 16px;
+    }
+    .wanted-card .person-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+    .wanted-card .person-date {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+    .wanted-section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 0 8px;
+    }
+    .wanted-section-header .header-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: #ef4444;
+    }
+    .wanted-info-banner {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.04));
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .wanted-info-banner i {
+        font-size: 24px;
+        color: #ef4444;
+        flex-shrink: 0;
+    }
+    .wanted-info-banner p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+    .pulse-ring {
+        animation: pulse-ring-anim 2s ease-out infinite;
+    }
+    @keyframes pulse-ring-anim {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+        70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+    .empty-state i {
+        font-size: 64px;
+        margin-bottom: 16px;
+        opacity: 0.3;
+    }
+    .empty-state h5 {
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-shield-exclamation me-2" style="color:#ef4444;"></i>Wanted Persons</h2>
+    <div class="clock-box" id="clock" style="display: none;">--:--:--</div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Info Banner -->
+<div class="wanted-info-banner">
+    <i class="bi bi-info-circle-fill"></i>
+    <p>
+        <strong>Security Watchlist:</strong> Upload photos of wanted or suspicious persons. When any of these persons are detected on <strong>any CCTV camera</strong>, you will receive an <strong>email alert</strong> and a <strong>system notification</strong> immediately.
+    </p>
+</div>
+
+<!-- Upload Form -->
+{% if can_manage %}
+<div class="row mb-4">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header-custom" style="border-left: 3px solid #ef4444;">
+                <i class="bi bi-person-fill-add me-2" style="color:#ef4444"></i>
+                Add Wanted Person
+            </div>
+            <div class="card-body-custom">
+                <form method="post" enctype="multipart/form-data" id="wantedForm">
+                    {% csrf_token %}
+                    
+                    <div class="row align-items-start">
+                        <!-- Left: Image Upload -->
+                        <div class="col-md-5 mb-3">
+                            <label class="form-label fw-bold">Person Photo</label>
+                            <div class="wanted-upload-zone" id="dropZone" onclick="document.getElementById('wanted_image').click()">
+                                <div id="uploadPlaceholder">
+                                    <div class="upload-icon pulse-ring">
+                                        <i class="bi bi-cloud-arrow-up-fill"></i>
+                                    </div>
+                                    <div class="upload-text">
+                                        <strong>Click to upload</strong> or drag & drop<br>
+                                        <small class="text-muted">JPG, PNG up to 10MB</small>
+                                    </div>
+                                </div>
+                                <div id="previewContainer" style="display:none;">
+                                    <div class="preview-img-wrapper">
+                                        <img id="imagePreview" src="" alt="Preview">
+                                        <div class="remove-preview" onclick="event.stopPropagation(); removeImage();" title="Remove">
+                                            <i class="bi bi-x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="file" id="wanted_image" name="wanted_image" style="display:none;" accept="image/*" required>
+                        </div>
+
+                        <!-- Right: Details Input -->
+                        <div class="col-md-7">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Full Name *</label>
+                                <input type="text" class="form-control" name="wanted_name" placeholder="Enter name of the wanted person" required>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Additional Reason / Notes</label>
+                                <textarea class="form-control" name="wanted_reason" rows="4" placeholder="Brief description, case details, or instructions if detected..."></textarea>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2 pt-2 border-top border-secondary border-opacity-25">
+                                <button type="button" class="btn btn-outline-secondary" onclick="removeImage(); document.getElementById('wantedForm').reset();">
+                                    Clear
+                                </button>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-shield-fill-plus me-2"></i>Add to Watchlist
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Wanted Persons Grid -->
+<div class="row mb-5">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header-custom" style="border-left: 3px solid #ef4444;">
+                <i class="bi bi-shield-fill-exclamation me-2" style="color:#ef4444"></i>
+                Active Watchlist ({{ wanted_persons.count|default:0 }})
+            </div>
+            <div class="card-body-custom">
+                {% if wanted_persons %}
+                <div class="row g-3">
+                    {% for person in wanted_persons %}
+                    <div class="col-sm-6 col-md-4 col-lg-3">
+                        <div class="wanted-card">
+                            <span class="wanted-badge"><i class="bi bi-exclamation-triangle-fill me-1"></i>WANTED</span>
+                            {% if person.image %}
+                                <img src="{{ person.image.url }}" class="card-img-top" alt="{{ person.name }}">
+                            {% else %}
+                                <div class="card-img-top d-flex align-items-center justify-content-center" style="background: #1a1e29;">
+                                    <i class="bi bi-person-fill" style="font-size: 64px; color: #333;"></i>
+                                </div>
+                            {% endif %}
+                            <div class="card-body">
+                                <div class="person-name">{{ person.name }}</div>
+                                <div class="person-date">
+                                    <i class="bi bi-calendar3 me-1"></i>Added {{ person.added_at|timesince }} ago
+                                </div>
+                                {% if can_manage %}
+                                <div class="d-flex justify-content-end mt-3">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteWantedModal{{ person.id }}" title="Remove from watchlist">
+                                        <i class="bi bi-trash me-1"></i>Remove
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Delete Confirmation Modal -->
+                        <div class="modal fade" id="deleteWantedModal{{ person.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content" style="background-color: #1a1d24; border-radius: 16px; border: 1px solid #2d3342;">
+                                    <div class="modal-body p-4 p-md-5 text-center">
+                                        <div class="mx-auto mb-4 d-flex align-items-center justify-content-center" style="width: 72px; height: 72px; border-radius: 50%; background-color: rgba(239, 68, 68, 0.1);">
+                                            <i class="bi bi-shield-x" style="font-size: 2rem; color: #ef4444;"></i>
+                                        </div>
+                                        <h4 class="fw-bold text-white mb-3">Remove from Watchlist?</h4>
+                                        <p class="mb-1" style="color: #8c93a1;">You are about to remove <strong class="text-white">{{ person.name }}</strong> from the watchlist.</p>
+                                        <p class="mb-4" style="color: #8c93a1; font-size:.85rem">They will no longer trigger CCTV detection alerts.</p>
+
+                                        <div class="d-flex justify-content-center gap-3 mt-4">
+                                            <button type="button" class="btn flex-fill fw-semibold" style="background-color: #242a38; border: 1px solid #333a4d; color: #fff; padding: 10px 0; border-radius: 8px;" data-bs-dismiss="modal">Cancel</button>
+                                            <form method="post" action="{% url 'delete_wanted' person.id %}" class="flex-fill m-0">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn fw-semibold w-100" style="background-color: #ef4444; color: #fff; padding: 10px 0; border-radius: 8px;">Yes, Remove</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-shield-slash"></i>
+                    <h5>No Wanted Persons</h5>
+                    <p>Your watchlist is empty. Add a person above to start monitoring.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // ── Drag & Drop ──
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('wanted_image');
+
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropZone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+    });
+    dropZone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            previewImage(fileInput);
+        }
+    });
+
+    // ── Preview ──
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('imagePreview').src = e.target.result;
+                document.getElementById('uploadPlaceholder').style.display = 'none';
+                document.getElementById('previewContainer').style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function removeImage() {
+        fileInput.value = '';
+        document.getElementById('imagePreview').src = '';
+        document.getElementById('uploadPlaceholder').style.display = 'block';
+        document.getElementById('previewContainer').style.display = 'none';
+    }
+</script>
+{% endblock %}
+{% endblock %}
